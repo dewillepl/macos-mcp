@@ -1,3 +1,10 @@
+## [2.1.5](https://github.com/krmj22/macos-mcp/compare/v2.1.4...v2.1.5) (2026-02-27)
+
+
+### Bug Fixes
+
+* coerce mail ID schema to accept numeric JSON inputs ([233237b](https://github.com/krmj22/macos-mcp/commit/233237b23a038c3ea7f290c5a9f0acb53e78d3a0))
+
 ## [2.1.4](https://github.com/krmj22/macos-mcp/compare/v2.1.3...v2.1.4) (2026-02-20)
 
 
