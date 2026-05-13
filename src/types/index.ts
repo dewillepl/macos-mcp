@@ -372,22 +372,3 @@ export interface ContactsToolArgs extends BaseToolArgs {
   limit?: number;
   offset?: number;
 }
-
-/**
- * Prompt-related type exports for consumers that need to interact with the
- * structured MCP prompt registry.
- */
-export type {
-  DailyTaskOrganizerArgs,
-  PromptArgsByName,
-  PromptArgumentDefinition,
-  PromptMessage,
-  PromptMessageContent,
-  PromptMetadata,
-  PromptName,
-  PromptResponse,
-  PromptTemplate,
-  ReminderReviewAssistantArgs,
-  SmartReminderCreatorArgs,
-  WeeklyPlanningWorkflowArgs,
-} from './prompts.js';
