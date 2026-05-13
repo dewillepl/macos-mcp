@@ -44,7 +44,7 @@ export function createCliPermissionHint(
  * Includes the System Settings deep-link URL for FDA.
  */
 export function createFdaHint(dbName: string): string {
-  return `Grant Full Disk Access to your terminal app (or the actual node binary for LaunchAgent) in System Settings > Privacy & Security > Full Disk Access. Open settings: ${SYSTEM_SETTINGS.FULL_DISK_ACCESS} (${dbName} database)`;
+  return `Grant Full Disk Access to your terminal app (or the actual node binary if running headless) in System Settings > Privacy & Security > Full Disk Access. Open settings: ${SYSTEM_SETTINGS.FULL_DISK_ACCESS} (${dbName} database)`;
 }
 
 /**

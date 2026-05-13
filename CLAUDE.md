@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Read [INTENT.md](INTENT.md) first.** Every decision must serve the intent.
+Local MCP server bridging Claude to six macOS apps (Reminders, Calendar, Notes, Mail, Messages, Contacts). The user's data is the truth: if Mail.app shows 7 messages, this server returns 7. Any discrepancy with the native app is a bug.
 
 ## Commands
 
@@ -47,16 +47,9 @@ Three bridges to Apple apps:
 
 ```
 src/
-├── config/              # Configuration system
-│   ├── schema.ts        # Zod schemas for config validation
-│   └── index.ts         # loadConfig() - file + env var loading
+├── config/              # Zod schema + loadConfig() (auto-injects name/version from package.json)
 ├── server/
-│   ├── server.ts        # MCP server factory
-│   └── transports/http/ # HTTP transport layer
-│       ├── index.ts     # Express + StreamableHTTPServerTransport
-│       ├── auth.ts      # Cloudflare Access JWT verification
-│       ├── middleware.ts # Rate limiting, logging, CORS
-│       └── health.ts    # /health endpoints
+│   └── server.ts        # MCP server factory
 ├── tools/
 │   ├── definitions.ts   # MCP tool schemas (dependentSchemas for validation)
 │   ├── index.ts         # Tool routing
@@ -96,13 +89,6 @@ Cross-tool layer resolves phone numbers and emails to contact names (Messages, M
 - **Safety**: All enrichment paths protected by `withTimeout(5000ms)`
 - **Toggle**: `enrichContacts` param (default: true)
 
-### HTTP Transport Design
-
-- **Stateless mode**: Required for multi-client support
-- **Root endpoint**: MCP handler at `/` (Claude expects this, not `/mcp`)
-- **JSON fallback**: `enableJsonResponse: true` for clients without SSE support
-- Config: env vars or `macos-mcp.config.json`. See README for options.
-
 ## Testing
 
 - **Unit**: Jest with ts-jest ESM. Coverage thresholds in `jest.config.mjs` (95%/80%/95%/95%). If coverage drops, write tests for uncovered branches.
@@ -121,13 +107,10 @@ This is a public repository.
 
 Before any release, run `pnpm release:preview` and verify the version bump matches intent. `fix:` → patch, `feat:` → minor, `BREAKING CHANGE:` → major.
 
-## Infrastructure
+## Distribution
 
-- **Production**: LaunchAgent `com.macos-mcp.server` on Mac Mini (Winston)
-- **Tunnel**: Cloudflare `mac-mini-winston` → `mcp.kyleos.ai` → `localhost:3847`
 - **npm**: Published as `mcp-macos`
 - **CI**: GitHub Actions — test + lint + release (#86)
-- **After restart**: Always restart both server AND tunnel LaunchAgents
 
 ## Commits
 

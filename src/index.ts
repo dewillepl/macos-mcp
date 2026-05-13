@@ -2,78 +2,26 @@
 
 /**
  * index.ts
- * Entry point for the macOS MCP server
- *
- * Supports multiple transport modes:
- * - stdio: Standard input/output (default, for Claude Desktop)
- * - http: HTTP/SSE transport (for remote access via Cloudflare Tunnel)
- * - both: Run both transports simultaneously
+ * Entry point for the macOS MCP server (stdio transport)
  */
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { type FullServerConfig, loadConfig } from './config/index.js';
 import { createServer } from './server/server.js';
-import type { HttpTransportInstance } from './server/transports/http/index.js';
 import { contactResolver } from './utils/contactResolver.js';
 
-/** Active HTTP transport instance for cleanup */
-let httpTransport: HttpTransportInstance | null = null;
-
-/**
- * Graceful shutdown handler
- * Stops HTTP server if running and exits cleanly
- */
-async function shutdown(): Promise<void> {
-  process.stderr.write(
-    `${JSON.stringify({ timestamp: new Date().toISOString(), event: 'shutdown_initiated' })}\n`,
-  );
-
-  if (httpTransport) {
-    await httpTransport.stop();
-  }
-
-  process.exit(0);
-}
-
-/**
- * Main entry point
- * Loads configuration and starts appropriate transport(s)
- */
 async function main(): Promise<void> {
   const config: FullServerConfig = loadConfig();
   const server = createServer(config);
 
-  // Warm contact cache before connecting transports.
-  // Fire-and-forget: cache builds concurrently, giving maximum head start
-  // before the first enrichment request arrives.
+  // Warm contact cache before connecting transport.
+  // Fire-and-forget: cache builds concurrently with stdio handshake.
   void contactResolver.warmCache();
 
-  // Register graceful shutdown handlers
-  process.on('SIGINT', () => void shutdown());
-  process.on('SIGTERM', () => void shutdown());
-
-  // Start stdio transport if configured
-  if (config.transport === 'stdio' || config.transport === 'both') {
-    const stdioTransport = new StdioServerTransport();
-    await server.connect(stdioTransport);
-  }
-
-  // Start HTTP transport if configured
-  if (config.transport === 'http' || config.transport === 'both') {
-    if (!config.http?.enabled) {
-      throw new Error('HTTP transport requested but http.enabled is false');
-    }
-
-    // Dynamic import to avoid loading express when not needed
-    const { createHttpTransport } = await import(
-      './server/transports/http/index.js'
-    );
-    httpTransport = createHttpTransport(server, config, config.http);
-    await httpTransport.start();
-  }
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
 }
 
-// Handle --check flag for preflight validation
 if (process.argv.includes('--check')) {
   import('./utils/preflight.js').then(
     async ({ runPreflight, formatResults }) => {
@@ -84,7 +32,6 @@ if (process.argv.includes('--check')) {
     },
   );
 } else {
-  // Start the application
   main().catch((error: unknown) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     process.stderr.write(

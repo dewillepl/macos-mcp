@@ -7,7 +7,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 ### Prerequisites
 
 - **macOS** (required - this project uses native macOS APIs)
-- **Node.js** 18+ (we test on 18, 20, and 22)
+- **Node.js** 20+ (we test on 20 and 22)
 - **pnpm** (install via `corepack enable`)
 - **Xcode Command Line Tools** (for Swift compilation)
 

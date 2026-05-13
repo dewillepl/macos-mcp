@@ -1,6 +1,5 @@
 #!/bin/bash
-# Pre-push hook: test, build, and restart LaunchAgent
-# Ensures pushed code passes tests and the running server reflects it.
+# Pre-push hook: run tests and build before pushing.
 
 set -e
 
@@ -9,13 +8,3 @@ pnpm test
 
 echo "🔨 Building project..."
 pnpm build
-
-# Restart LaunchAgent if it's registered (only relevant on production Mac)
-LABEL="com.macos-mcp.server"
-if launchctl list "$LABEL" &>/dev/null; then
-  echo "♻️  Restarting LaunchAgent..."
-  launchctl kickstart -k "gui/$(id -u)/$LABEL"
-  echo "✅ Server restarted with latest build"
-else
-  echo "ℹ️  LaunchAgent not running, skipping restart"
-fi
