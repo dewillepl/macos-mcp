@@ -17,10 +17,6 @@ pnpm release:preview  # Dry-run semantic-release (shows next version + changelog
 
 `bin/run.cjs` runs compiled `dist/index.js` — requires `pnpm build`. Use `pnpm dev` for source-level iteration (stdio only).
 
-## Session State
-
-Run `git log --notes=state -1` for the latest session handoff note. Performance baselines: `git log --notes=baselines -1`.
-
 ## Known Gotchas
 
 - **Calendar**: Recurring event deletion only removes single occurrence (`.thisEvent` span)
@@ -111,6 +107,18 @@ Before any release, run `pnpm release:preview` and verify the version bump match
 
 - **npm**: Published as `mcp-macos`
 - **CI**: GitHub Actions — test + lint + release (#86)
+
+## Competitive Landscape
+
+- `mattt/iMCP` (1418 stars) is the long-term threat — Swift `.app` + menu-bar UX, covers Messages/Contacts/Calendar/Reminders but **not Mail or Notes**. Different product category (ships as `.app`, not npm). If iMCP adds Mail+Notes, the wedge closes.
+- `supermemoryai/apple-mcp` (3087 stars, JXA-based) was archived January 2026. Still pulls 1.1k npm dl/mo on inertia.
+- Differentiators to preserve: SQLite reads for Mail (`Envelope Index`) and Messages on Sonoma+, cross-tool contact enrichment via SQLite AddressBook cache. Nobody else combines these.
+- Posture: quietly available. No registry submission, no `awesome-mcp-servers` PR, no announcement.
+
+## Scope Discipline
+
+- If a subsystem has no external callers AND Kyle doesn't remember what it does, default to **cut**, not preserve. Two no's = dead weight regardless of LOC.
+- Post-pivot, deletion is highest-leverage work. INTENT.md framing changed (phone-from-coffee-shop → local-only on Mac Mini); the right response was cutting HTTP transport + opinionated prompts subsystem, not maintaining them.
 
 ## Commits
 
