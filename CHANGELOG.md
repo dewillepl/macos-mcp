@@ -1,3 +1,20 @@
+# [3.0.0](https://github.com/krmj22/macos-mcp/compare/v2.1.4...v3.0.0) (2026-05-13)
+
+
+* refactor!: remove HTTP transport and Cloudflare Access path ([b7ae42e](https://github.com/krmj22/macos-mcp/commit/b7ae42ee7436456eb16f4b43d6ffd042268d206a)), closes [#104](https://github.com/krmj22/macos-mcp/issues/104) [#105](https://github.com/krmj22/macos-mcp/issues/105) [#106](https://github.com/krmj22/macos-mcp/issues/106) [#107](https://github.com/krmj22/macos-mcp/issues/107) [#108](https://github.com/krmj22/macos-mcp/issues/108) [#109](https://github.com/krmj22/macos-mcp/issues/109) [#110](https://github.com/krmj22/macos-mcp/issues/110)
+
+
+### Bug Fixes
+
+* coerce mail ID schema to accept numeric JSON inputs ([233237b](https://github.com/krmj22/macos-mcp/commit/233237b23a038c3ea7f290c5a9f0acb53e78d3a0))
+
+
+### BREAKING CHANGES
+
+* MCP_TRANSPORT, MCP_HTTP_*, and CF_ACCESS_* env vars
+are no longer recognized. macos-mcp.config.json is no longer read.
+The server runs stdio-only.
+
 ## [2.1.5](https://github.com/krmj22/macos-mcp/compare/v2.1.4...v2.1.5) (2026-02-27)
 
 
