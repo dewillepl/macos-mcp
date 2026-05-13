@@ -1,3 +1,15 @@
+# [4.0.0](https://github.com/krmj22/macos-mcp/compare/v3.0.0...v4.0.0) (2026-05-13)
+
+
+* refactor!: remove unused MCP prompts subsystem and dead code ([b06cc4a](https://github.com/krmj22/macos-mcp/commit/b06cc4ade4dda79b1cb50ada59ebb3ea7862b1b8))
+
+
+### BREAKING CHANGES
+
+* MCP clients that called prompts/list or prompts/get
+will now see the prompts capability absent and the endpoints return
+"method not found". No tool surface area is affected.
+
 # [3.0.0](https://github.com/krmj22/macos-mcp/compare/v2.1.4...v3.0.0) (2026-05-13)
 
 
