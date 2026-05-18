@@ -1,8 +1,10 @@
-# macos-mcp ![License: MIT](https://img.shields.io/badge/license-MIT-green)
+# macos-mcp ![Platform: macOS](https://img.shields.io/badge/platform-macOS-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
 > Based on [FradSer/mcp-server-apple-events](https://github.com/FradSer/mcp-server-apple-events)
 
-MCP server for Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS. Local stdio transport for Claude Desktop, Claude Code, and Cursor.
+MCP server for Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS. Local stdio transport — works with any MCP-capable client running on the same Mac (Claude Code, Claude Desktop, Cursor, Zed, Continue, ChatGPT desktop, etc.).
+
+> **Requires a Mac.** This server drives native macOS apps via EventKit, JXA (Apple Events), and SQLite reads of local Apple databases. It cannot run on Linux, Windows, iOS, Android, or in a web browser. You need a Mac (desktop or laptop) running macOS.
 
 ## Quick Start
 
