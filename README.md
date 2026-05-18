@@ -168,6 +168,8 @@ Three bridges to Apple apps:
 - **JXA** — Notes, Mail writes, Contacts. Scripts run via `osascript -l JavaScript`.
 - **SQLite** — Messages reads (`~/Library/Messages/chat.db`), Mail reads (`~/Library/Mail/V10/MailData/Envelope Index`). JXA message reading is broken on Sonoma+; JXA mail reading is too slow for real inboxes.
 
+See [DECISION.md](DECISION.md) for architecture decision records.
+
 ### Dependencies
 
 **Runtime:** `@modelcontextprotocol/sdk`, `zod`

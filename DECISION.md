@@ -124,3 +124,71 @@ Post-process: merge email and phone results by `ZUNIQUEID` in TypeScript. Dedupl
 - `src/utils/sqliteContactReader.ts` — Contacts SQLite reader (this ADR)
 - `src/utils/contactResolver.ts` — Consumer: `doBuildCache()` calls `fetchAllContacts()`
 - ADR-001 — Established the SQLite-for-reads pattern
+
+## ADR-003: Remove HTTP Transport and Cloudflare Access Path
+
+**Date**: 2026-05-13
+**Status**: Accepted
+**Issues**: #104, #105, #106, #107, #108, #109, #110
+**Commit**: `b7ae42e` (removal) — last HTTP-included release: tag `v2.1.5`
+
+### Context
+
+The server originally shipped two transports: local stdio (Claude Code, Claude Desktop, Cursor on the same Mac) and streamable HTTP behind Cloudflare Access (remote access from phone or laptop). The HTTP path required:
+
+- `src/server/transports/http/` — Express server, JWT verification middleware, health endpoint, rate limiter
+- Cloudflare Access for identity-proxy auth (JWT issued by CF, verified against JWKS)
+- Cloudflare Tunnel for the network path (Mac Mini behind NAT, no public IP)
+- Deploy/tunnel/auto-deploy shell scripts (~1k LOC)
+- `docs/CLOUDFLARE_SETUP.md` (703 lines) walking users through CF account setup, tunnel install, access policy
+- `macos-mcp.config.json` for transport selection + HTTP/CF env vars
+- Dependencies: `express`, `express-rate-limit`, `jose`, `supertest`
+- 25 HTTP E2E tests + helpers
+
+The use case was "phone from coffee shop" — Kyle on iOS hitting the Mac Mini's MCP from anywhere. That framing was captured in INTENT.md.
+
+The framing changed. Claude's iOS app added remote dispatch: mobile sends work to a Claude Code session running on the local Mac, which uses the existing stdio MCP. The remote-access requirement evaporated — mobile reaches the server through Claude Code, not through a public HTTPS endpoint.
+
+### Decision
+
+Delete the HTTP transport, Cloudflare Access path, and all supporting infrastructure. Server runs stdio-only.
+
+| Removed | Reason |
+|---|---|
+| `src/server/transports/http/` (auth, middleware, health, transport) | No remote callers |
+| `tests/e2e/http-transport.test.mts` + helpers | Tests for removed code |
+| `docs/CLOUDFLARE_SETUP.md` | Setup guide for removed path |
+| `scripts/{deploy,setup-tunnel,auto-deploy,test-e2e}.sh` | Tooling for removed path |
+| `macos-mcp.config.example.json` | Config schema for removed transport |
+| `express`, `express-rate-limit`, `jose`, `supertest` deps | No consumers |
+| `INTENT.md` | Obsolete phone-from-coffee-shop framing |
+| `AGENTS.md` | Generic boilerplate, partly inaccurate |
+
+Diff: **29 files changed, 59 insertions(+), 5,817 deletions(-)**.
+
+`MCP_TRANSPORT`, `MCP_HTTP_*`, and `CF_ACCESS_*` env vars are no longer recognized. `macos-mcp.config.json` is no longer read.
+
+### Trade-offs
+
+**Gains:**
+- ~5.8k LOC removed — proportional reduction in surface area to maintain, test, and document
+- No auth surface — no JWT verification, no JWKS rotation, no rate-limiter edge cases
+- No deploy story — install is `npx mcp-macos`, not "set up Cloudflare account, install cloudflared, write access policy"
+- No transport selection logic in `src/index.ts` or config schema
+- Dependency tree shrinks (express + jose + supertest gone)
+
+**Costs:**
+- True remote access (non-Claude-mediated) is no longer supported. If a future use case needs it, it must be rebuilt.
+- The HTTP+CF Access pattern is no longer demonstrated in this repo's HEAD — it lives in git history (`b7ae42e^`) and can be referenced or revived from there.
+
+### What's preserved
+
+The technique is intact in git history under tag `v2.1.5`. Any future MCP needing remote HTTP + identity-proxy auth can lift the pattern from there: stateless streamable-HTTP server, JWT verification against CF Access JWKS, IPv6-aware rate limiting behind a tunnel.
+
+### References
+
+- `b7ae42e` — Removal commit
+- `v2.1.5` — Last release with HTTP transport
+- Pre-removal HTTP implementation: `git show v2.1.5:src/server/transports/http/index.ts`
+- Pre-removal auth: `git show v2.1.5:src/server/transports/http/auth.ts`
+- Pre-removal setup guide: `git show v2.1.5:docs/CLOUDFLARE_SETUP.md`
