@@ -162,13 +162,34 @@ Production entry point (`bin/run.cjs`) requires `pnpm build`. Use `pnpm dev` for
 
 ### Architecture
 
+```mermaid
+flowchart LR
+    Client[MCP Client<br/>Claude Code, Cursor, Desktop] -->|stdio| Server[macos-mcp]
+
+    Server --> Swift[Swift CLI]
+    Server --> JXA[JXA]
+    Server --> SQLite[SQLite Readers]
+
+    Swift -->|EventKit| Reminders[Reminders]
+    Swift -->|EventKit| Calendar[Calendar]
+
+    JXA -->|Apple Events| Notes[Notes]
+    JXA -->|Apple Events| Contacts[Contacts]
+    JXA -->|writes only| Mail[Mail]
+    JXA -->|send only| Messages[Messages]
+
+    SQLite -->|Envelope Index| Mail
+    SQLite -->|chat.db| Messages
+    SQLite -->|AddressBook| Enrich[Contact<br/>Enrichment Cache]
+```
+
 Three bridges to Apple apps:
 
 - **EventKit (Swift binary)** — Reminders, Calendar. Compiled Swift CLI, returns JSON.
 - **JXA** — Notes, Mail writes, Contacts. Scripts run via `osascript -l JavaScript`.
 - **SQLite** — Messages reads (`~/Library/Messages/chat.db`), Mail reads (`~/Library/Mail/V10/MailData/Envelope Index`). JXA message reading is broken on Sonoma+; JXA mail reading is too slow for real inboxes.
 
-See [DECISION.md](DECISION.md) for architecture decision records.
+Mail and Messages use a hybrid path: JXA for writes (only way to trigger send/draft), SQLite for reads (the only way that scales). See [DECISION.md](DECISION.md) for architecture decision records.
 
 ### Dependencies
 
