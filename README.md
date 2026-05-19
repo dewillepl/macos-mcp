@@ -15,10 +15,20 @@ MCP server for Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS
 
 ## Quick Start
 
+### Install as a Claude Code plugin
+
+```
+/plugin marketplace add krmj22/macos-mcp
+/plugin install macos-mcp@krmj22-plugins
+```
+
+Run these inside Claude Code. The plugin wires up the MCP server via `npx -y mcp-macos`, so no separate install step is required.
+
 ### Install from npm
 
 ```bash
 npm install -g mcp-macos
+# or use npx via your client's MCP config (no global install needed)
 ```
 
 ### Or install via MCPB (Claude Desktop)

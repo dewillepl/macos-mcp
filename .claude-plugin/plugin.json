@@ -1,0 +1,10 @@
+{
+  "name": "macos-mcp",
+  "description": "MCP server for Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS. Requires a Mac.",
+  "mcpServers": {
+    "macos-mcp": {
+      "command": "npx",
+      "args": ["-y", "mcp-macos"]
+    }
+  }
+}
