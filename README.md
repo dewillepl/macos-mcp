@@ -21,6 +21,10 @@ MCP server for Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS
 npm install -g mcp-macos
 ```
 
+### Or install via MCPB (Claude Desktop)
+
+Download the `.mcpb` bundle from the [latest GitHub release](https://github.com/krmj22/macos-mcp/releases/latest) and drag it onto Claude Desktop. The bundle includes a pre-built universal Swift binary (arm64 + x86_64), so no Xcode Command Line Tools required.
+
 ### Or build from source
 
 ```bash

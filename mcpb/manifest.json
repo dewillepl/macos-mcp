@@ -1,0 +1,46 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
+  "manifest_version": "0.4",
+  "name": "macos-mcp",
+  "version": "4.0.0",
+  "description": "MCP server for Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS.",
+  "long_description": "Local stdio MCP server that bridges Claude to six native macOS apps via EventKit (Swift), JXA, and direct SQLite reads of Apple's local databases (Mail Envelope Index, Messages chat.db, AddressBook). Requires macOS — does not run on Linux, Windows, iOS, Android, or in a browser.",
+  "author": {
+    "name": "Kyle Jensen",
+    "url": "https://github.com/krmj22"
+  },
+  "homepage": "https://github.com/krmj22/macos-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/krmj22/macos-mcp"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "macos",
+    "apple",
+    "reminders",
+    "calendar",
+    "notes",
+    "mail",
+    "messages",
+    "contacts",
+    "eventkit",
+    "jxa"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"]
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin"],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  }
+}

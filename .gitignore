@@ -194,3 +194,7 @@ macos-mcp.config.json
 # Plan scratchpads
 2026-*.txt
 marketing/
+
+# MCPB build artifacts
+mcpb-build/
+dist-mcpb/
