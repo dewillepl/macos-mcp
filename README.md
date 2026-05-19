@@ -6,6 +6,13 @@ MCP server for Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS
 
 > **Requires a Mac.** This server drives native macOS apps via EventKit, JXA (Apple Events), and SQLite reads of local Apple databases. It cannot run on Linux, Windows, iOS, Android, or in a web browser. You need a Mac (desktop or laptop) running macOS.
 
+## Design Notes
+
+- **SQLite for reads, JXA for writes.** JXA reads of Mail and Messages don't scale — 60s timeouts on real inboxes, and JXA Messages reads are broken entirely on macOS Sonoma+. This server reads `chat.db` and Mail's `Envelope Index` directly, including the Gmail `labels` join table for `[Gmail]/All Mail` accounts. Writes still go through JXA because Apple Events is the only API that triggers them. See [ADR-001](DECISION.md).
+- **Per-app hybrid backend.** Each app uses the bridge that works: Swift CLI through EventKit for Reminders and Calendar, JXA for Notes/Contacts/Mail-writes/Messages-send, SQLite for Mail and Messages reads. The architecture diagram below shows the full fan-out.
+- **Cross-tool contact enrichment.** A shared layer resolves raw phone numbers and emails to contact names across Messages, Mail, and Calendar. Bulk cache via SQLite AddressBook (<50ms for 1,100+ entries), targeted lookups via JXA `whose()`. See [ADR-002](DECISION.md).
+- **Preflight check.** `macos-mcp --check` validates macOS version, Node.js, the EventKit binary, Full Disk Access, and JXA permissions before runtime, with deep-links to the relevant System Settings panes for any failures.
+
 ## Quick Start
 
 ### Install from npm
