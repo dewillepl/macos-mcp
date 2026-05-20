@@ -120,7 +120,9 @@ async function main() {
   await run(`npx --yes @anthropic-ai/mcpb pack . "${outputFile}"`, STAGING);
 
   const stat = await fs.stat(outputFile);
-  log(`Bundle ready: ${outputFile} (${(stat.size / 1024 / 1024).toFixed(2)} MB)`);
+  log(
+    `Bundle ready: ${outputFile} (${(stat.size / 1024 / 1024).toFixed(2)} MB)`,
+  );
 }
 
 main().catch((err) => {

@@ -1,7 +1,10 @@
 #!/bin/bash
-# Pre-push hook: run tests and build before pushing.
+# Pre-push hook: run format check, tests, and build before pushing.
 
 set -e
+
+echo "🎨 Checking formatting..."
+pnpm exec biome check --formatter-enabled=true --linter-enabled=false
 
 echo "🧪 Running tests..."
 pnpm test
