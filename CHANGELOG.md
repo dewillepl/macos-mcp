@@ -1,3 +1,11 @@
+# [4.1.0](https://github.com/krmj22/macos-mcp/compare/v4.0.0...v4.1.0) (2026-05-20)
+
+
+### Features
+
+* add Claude Code plugin metadata for one-line install ([eea5615](https://github.com/krmj22/macos-mcp/commit/eea561547e9f87f054fef17ef9387d74423348da))
+* add MCPB bundle for one-click Claude Desktop install ([d0a58da](https://github.com/krmj22/macos-mcp/commit/d0a58da266d27ec0c1792d42e1851c7bee9f890d))
+
 # [4.0.0](https://github.com/krmj22/macos-mcp/compare/v3.0.0...v4.0.0) (2026-05-13)
 
 
