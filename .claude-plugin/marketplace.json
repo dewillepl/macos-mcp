@@ -10,7 +10,7 @@
         "source": "github",
         "repo": "krmj22/macos-mcp"
       },
-      "description": "MCP server for Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS. Local stdio. Requires a Mac."
+      "description": "Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS, over MCP. Local stdio. Requires a Mac."
     }
   ]
 }

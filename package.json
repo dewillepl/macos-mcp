@@ -1,7 +1,7 @@
 {
   "name": "mcp-macos",
   "version": "4.1.0",
-  "description": "MCP server for Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS.",
+  "description": "Drive Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS from an AI agent or the shell. MCP server, agent skill, or CLI.",
   "author": "Kyle Jensen",
   "contributors": [
     "Frad Lee <https://frad.me>"
@@ -38,7 +38,13 @@
     "messages",
     "imessage",
     "events",
-    "automation"
+    "automation",
+    "skill",
+    "claude",
+    "agent",
+    "eventkit",
+    "jxa",
+    "applescript"
   ],
   "type": "module",
   "main": "dist/index.js",

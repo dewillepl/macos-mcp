@@ -1,17 +1,27 @@
 # macos-mcp ![Platform: macOS](https://img.shields.io/badge/platform-macOS-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-> Based on [FradSer/mcp-server-apple-events](https://github.com/FradSer/mcp-server-apple-events)
+Drive Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS from an AI agent, or from the shell.
 
-MCP server for Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS. Local stdio transport — works with any MCP-capable client running on the same Mac (Claude Code, Claude Desktop, Cursor, Zed, Continue, ChatGPT desktop, etc.).
+Apple exposes three automation surfaces for these apps, and each one fails somewhere. EventKit does not reach Notes, Mail, Messages, or Contacts. JXA reads of Messages return nothing on Sonoma and later. JXA reads of Mail time out at 60 seconds against a real inbox. This project uses the bridge that works per app and documents why in [DECISION.md](DECISION.md).
 
-> **Requires a Mac.** This server drives native macOS apps via EventKit, JXA (Apple Events), and SQLite reads of local Apple databases. It cannot run on Linux, Windows, iOS, Android, or in a web browser. You need a Mac (desktop or laptop) running macOS.
+| App | Reads | Writes |
+|-----|-------|--------|
+| Reminders | EventKit (Swift) | EventKit (Swift) |
+| Calendar | EventKit (Swift) | EventKit (Swift) |
+| Notes | JXA | JXA |
+| Contacts | JXA | JXA |
+| Mail | SQLite (`Envelope Index`) | JXA |
+| Messages | SQLite (`chat.db`) | JXA |
 
-## Design Notes
+> **Requires a Mac.** These bridges are EventKit, Apple Events, and SQLite reads of local Apple databases. There is no Linux, Windows, iOS, Android, or browser build.
 
-- **SQLite for reads, JXA for writes.** JXA reads of Mail and Messages don't scale — 60s timeouts on real inboxes, and JXA Messages reads are broken entirely on macOS Sonoma+. This server reads `chat.db` and Mail's `Envelope Index` directly, including the Gmail `labels` join table for `[Gmail]/All Mail` accounts. Writes still go through JXA because Apple Events is the only API that triggers them. See [ADR-001](DECISION.md).
-- **Per-app hybrid backend.** Each app uses the bridge that works: Swift CLI through EventKit for Reminders and Calendar, JXA for Notes/Contacts/Mail-writes/Messages-send, SQLite for Mail and Messages reads. The architecture diagram below shows the full fan-out.
-- **Cross-tool contact enrichment.** A shared layer resolves raw phone numbers and emails to contact names across Messages, Mail, and Calendar. Bulk cache via SQLite AddressBook (<50ms for 1,100+ entries), targeted lookups via JXA `whose()`. See [ADR-002](DECISION.md).
-- **Preflight check.** `macos-mcp --check` validates macOS version, Node.js, the EventKit binary, Full Disk Access, and JXA permissions before runtime, with deep-links to the relevant System Settings panes for any failures.
+## Three ways to use it
+
+**As an MCP server.** Local stdio transport, works with any MCP-capable client on the same Mac (Claude Code, Claude Desktop, Cursor, Zed, Continue, ChatGPT desktop). Eight tools, listed under [Tools](#tools).
+
+**As an agent skill.** The same bridges called as shell commands, with no tool schemas loaded into context. An MCP server puts all eight tool definitions in front of the model at session start whether or not the session touches a Mac app; a skill is one description line until something triggers it. See [skills/macos/](skills/macos/) for the skill, and [docs/mcp-vs-skill.md](docs/mcp-vs-skill.md) for how to choose.
+
+**As a CLI.** `EventKitCLI` is a standalone Swift binary that speaks JSON on stdout. The JXA and SQLite recipes in the skill run anywhere a shell does.
 
 ## Quick Start
 
@@ -52,6 +62,26 @@ macos-mcp --check   # or: node dist/index.js --check
 
 Checks macOS version, Node.js, EventKit binary, Full Disk Access, and JXA automation permissions.
 
+
+### Or use it as a skill instead of a server
+
+Copy the skill into your agent's skills directory. No MCP server, no tool schemas in context.
+
+```bash
+git clone https://github.com/krmj22/macos-mcp.git
+cp -R macos-mcp/skills/macos ~/.claude/skills/macos
+```
+
+The skill calls `EventKitCLI`, `osascript`, and `sqlite3` directly, so it needs the Swift binary on PATH:
+
+```bash
+cd "$(mktemp -d)" && npm i mcp-macos --no-save \
+  && mkdir -p ~/.local/lib/mcp-macos/bin \
+  && cp node_modules/mcp-macos/bin/EventKitCLI ~/.local/lib/mcp-macos/bin/EventKitCLI \
+  && ln -sf ~/.local/lib/mcp-macos/bin/EventKitCLI ~/.local/bin/EventKitCLI
+```
+
+Same permissions apply either way. See [Permissions](#permissions).
 ## Tools
 
 | Tool | App | Bridge | Actions |
@@ -68,6 +98,13 @@ Checks macOS version, Node.js, EventKit binary, Full Disk Access, and JXA automa
 
 Both underscore (`reminders_tasks`) and dot (`reminders.tasks`) notation work.
 
+
+## Design Notes
+
+- **SQLite for reads, JXA for writes.** JXA reads of Mail do not scale, hitting 60s timeouts on real inboxes, and JXA Messages reads are broken entirely on macOS Sonoma and later. This project reads `chat.db` and Mail's `Envelope Index` directly, including the Gmail `labels` join table for `[Gmail]/All Mail` accounts. Writes still go through JXA, because Apple Events is the only API that triggers them. See [ADR-001](DECISION.md).
+- **Per-app hybrid backend.** Each app uses the bridge that works: a Swift CLI through EventKit for Reminders and Calendar, JXA for Notes, Contacts, Mail writes and Messages send, SQLite for Mail and Messages reads. The [architecture diagram](#architecture) shows the fan-out.
+- **Cross-tool contact enrichment.** A shared layer resolves raw phone numbers and email addresses to contact names across Messages, Mail, and Calendar. Bulk cache via the SQLite AddressBook store, under 50ms for 1,100 entries; targeted lookups via JXA `whose()`. See [ADR-002](DECISION.md).
+- **Preflight check.** `macos-mcp --check` validates macOS version, Node.js, the EventKit binary, Full Disk Access, and JXA permissions before runtime, with deep links to the relevant System Settings panes for anything that fails.
 ## Setup
 
 ### Prerequisites
@@ -78,7 +115,7 @@ Both underscore (`reminders_tasks`) and dot (`reminders.tasks`) notation work.
 
 ### Client Configuration
 
-The JSON config is the same for all clients — just the location differs.
+The JSON config is the same for all clients. Only the location differs.
 
 ```json
 {
@@ -149,7 +186,7 @@ open "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
 | nvm | `nvm which current` |
 | fnm | `fnm exec -- node -e "console.log(process.execPath)"` |
 
-System Settings may not show binaries in hidden directories — use `open -R` above to reveal it in Finder, then drag into the FDA list.
+System Settings may not show binaries in hidden directories. Use `open -R` above to reveal it in Finder, then drag into the FDA list.
 
 ### JXA Automation (Notes, Mail, Contacts)
 
@@ -208,9 +245,9 @@ flowchart LR
 
 Three bridges to Apple apps:
 
-- **EventKit (Swift binary)** — Reminders, Calendar. Compiled Swift CLI, returns JSON.
-- **JXA** — Notes, Mail writes, Contacts. Scripts run via `osascript -l JavaScript`.
-- **SQLite** — Messages reads (`~/Library/Messages/chat.db`), Mail reads (`~/Library/Mail/V10/MailData/Envelope Index`). JXA message reading is broken on Sonoma+; JXA mail reading is too slow for real inboxes.
+- **EventKit (Swift binary).** Reminders, Calendar. Compiled Swift CLI, returns JSON.
+- **JXA.** Notes, Mail writes, Contacts. Scripts run via `osascript -l JavaScript`.
+- **SQLite.** Messages reads (`~/Library/Messages/chat.db`), Mail reads (`~/Library/Mail/V10/MailData/Envelope Index`). JXA message reading is broken on Sonoma and later. JXA mail reading is too slow for real inboxes.
 
 Mail and Messages use a hybrid path: JXA for writes (only way to trigger send/draft), SQLite for reads (the only way that scales). See [DECISION.md](DECISION.md) for architecture decision records.
 
@@ -219,6 +256,11 @@ Mail and Messages use a hybrid path: JXA for writes (only way to trigger send/dr
 **Runtime:** `@modelcontextprotocol/sdk`, `zod`
 
 **Dev:** `typescript`, `tsx`, `jest`, `@biomejs/biome`
+
+
+## Credits
+
+The MCP server layer started from [FradSer/mcp-server-apple-events](https://github.com/FradSer/mcp-server-apple-events) (MIT). The EventKit Swift CLI, the SQLite read paths, contact enrichment, the preflight check, and the skill surface were added here.
 
 ## License
 
