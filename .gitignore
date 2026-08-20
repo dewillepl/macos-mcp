@@ -195,6 +195,10 @@ macos-mcp.config.json
 2026-*.txt
 marketing/
 
+# Local task briefs / instructions handed to an agent (not for remote)
+/*-brief.md
+/*-notes.md
+
 # MCPB build artifacts
 mcpb-build/
 dist-mcpb/
