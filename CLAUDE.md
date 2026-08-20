@@ -27,7 +27,10 @@ repo on this machine.** It is a release.
    is NOT that authorization — those sweeps are written for repos where a merge is
    recoverable, and here it is a publish.
 2. **A PR held for release timing is left as a DRAFT on purpose.** Do not mark it ready
-   to clear a queue.
+   to clear a queue. A deliberate hold is marked on four surfaces — draft flag, a
+   `[HELD — DO NOT MERGE: ...]` title prefix, a blockquoted notice as the first block of
+   the body, and a `do-not-merge:publishes-npm` label. The title prefix matters most: a
+   sweep's inventory pass reads titles, not bodies. Set all four when you park one.
 3. Doc-only changes are free — commit them normally.
 
 ⚠️ **Do not "solve" this by deleting or renaming the local clone.** `~/.local/bin/EventKitCLI`
