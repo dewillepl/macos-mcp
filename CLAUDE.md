@@ -2,6 +2,40 @@
 
 Local MCP server bridging Claude to six macOS apps (Reminders, Calendar, Notes, Mail, Messages, Contacts). The user's data is the truth: if Mail.app shows 7 messages, this server returns 7. Any discrepancy with the native app is a bug.
 
+## ⛔ MERGING TO `main` PUBLISHES A PUBLIC NPM PACKAGE
+
+This repo is **publish-on-merge**. `.github/workflows/ci.yml` runs `semantic-release`
+on every push to `main`, which publishes to npm as `mcp-macos` and cuts a GitHub
+release. That is a public, outward-facing act and it is not cleanly reversible — npm
+restricts unpublish after 72 hours.
+
+**So merging a PR here is not the same class of action as merging a PR in any other
+repo on this machine.** It is a release.
+
+- **`fix:` / `feat:` / `perf:` on `main` → a real npm publish.**
+- **`docs:` / `chore:` / `style:` / `refactor:` / `test:` on `main` → CI runs, nothing publishes.**
+- ⚠️ **Exception: a `BREAKING CHANGE:` footer publishes a MAJOR from any commit type**, `docs:`
+  included, and a `revert:` publishes a patch. Verified at source in the installed
+  `@semantic-release/commit-analyzer@13.0.1` `lib/default-release-rules.js` — that file is the
+  authority, not this list.
+- `pnpm release:preview` dry-runs it and prints the next version before you commit to anything.
+
+**Rules for any agent, and especially for an unattended one:**
+
+1. **Never merge a `fix:`/`feat:`/`perf:` PR here without Kyle saying so in that session.**
+   A general instruction to "get everything back on main" or "clean up the branches"
+   is NOT that authorization — those sweeps are written for repos where a merge is
+   recoverable, and here it is a publish.
+2. **A PR held for release timing is left as a DRAFT on purpose.** Do not mark it ready
+   to clear a queue.
+3. Doc-only changes are free — commit them normally.
+
+⚠️ **Do not "solve" this by deleting or renaming the local clone.** `~/.local/bin/EventKitCLI`
+is a symlink into `bin/` of this working copy, so removing it silently breaks every
+Reminders and Calendar call on this machine — a failure that has already recurred twice
+(2026-07-21, 2026-08-19). The guard belongs on the PR and in this file, not in the
+filesystem.
+
 ## Commands
 
 ```bash
