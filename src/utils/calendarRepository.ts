@@ -66,6 +66,8 @@ class CalendarRepository {
     return nullToUndefined(event, [
       'notes',
       'location',
+      'latitude',
+      'longitude',
       'url',
       'attendees',
     ]) as CalendarEvent;
@@ -89,7 +91,14 @@ class CalendarRepository {
       filters.search,
     );
     return events.map((e) =>
-      nullToUndefined(e, ['notes', 'location', 'url', 'attendees']),
+      nullToUndefined(e, [
+        'notes',
+        'location',
+        'latitude',
+        'longitude',
+        'url',
+        'attendees',
+      ]),
     ) as CalendarEvent[];
   }
 
@@ -111,6 +120,9 @@ class CalendarRepository {
     addOptionalArg(args, '--targetCalendar', data.calendar);
     addOptionalArg(args, '--note', data.notes);
     addOptionalArg(args, '--location', data.location);
+    addOptionalBooleanArg(args, '--geocode', data.geocode);
+    addOptionalNumberArg(args, '--latitude', data.latitude);
+    addOptionalNumberArg(args, '--longitude', data.longitude);
     addOptionalArg(args, '--url', data.url);
     addOptionalBooleanArg(args, '--isAllDay', data.isAllDay);
     // Recurrence parameters
@@ -140,6 +152,9 @@ class CalendarRepository {
     addOptionalArg(args, '--endDate', data.endDate);
     addOptionalArg(args, '--note', data.notes);
     addOptionalArg(args, '--location', data.location);
+    addOptionalBooleanArg(args, '--geocode', data.geocode);
+    addOptionalNumberArg(args, '--latitude', data.latitude);
+    addOptionalNumberArg(args, '--longitude', data.longitude);
     addOptionalArg(args, '--url', data.url);
     addOptionalBooleanArg(args, '--isAllDay', data.isAllDay);
     // Recurrence parameters

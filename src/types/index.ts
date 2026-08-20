@@ -45,6 +45,8 @@ export interface CalendarEvent {
   calendar: string;
   notes?: string;
   location?: string;
+  latitude?: number;
+  longitude?: number;
   url?: string;
   isAllDay: boolean;
   recurrence?: Recurrence;
@@ -162,6 +164,9 @@ export interface CalendarToolArgs extends BaseToolArgs {
   title?: string;
   note?: string;
   location?: string;
+  geocode?: boolean;
+  latitude?: number;
+  longitude?: number;
   url?: string;
   isAllDay?: boolean;
   // Target calendar for create/update operations

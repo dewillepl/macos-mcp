@@ -180,24 +180,38 @@ export const RecurrenceSchema = z
     message: 'Specify either endDate or occurrenceCount, not both',
   });
 
+// Coordinates for an explicit geocoder bypass — WGS84 range.
+export const SafeLatitudeSchema = z.number().min(-90).max(90).optional();
+export const SafeLongitudeSchema = z.number().min(-180).max(180).optional();
+
 // Calendar event schemas
-export const CreateCalendarEventSchema = z.object({
-  title: SafeTextSchema,
-  startDate: createRequiredDateSchema('Start date'),
-  endDate: createRequiredDateSchema('End date'),
-  note: SafeNoteSchema,
-  location: createOptionalSafeTextSchema(
-    VALIDATION.MAX_LOCATION_LENGTH,
-    'Location',
-  ),
-  url: SafeUrlSchema,
-  isAllDay: z.boolean().optional(),
-  targetCalendar: SafeListNameSchema,
-  recurrence: z.enum(['daily', 'weekly', 'monthly', 'yearly']).optional(),
-  recurrenceInterval: z.number().int().min(1).max(99).optional(),
-  recurrenceEnd: SafeDateSchema,
-  recurrenceCount: z.number().int().min(1).max(999).optional(),
-});
+export const CreateCalendarEventSchema = z
+  .object({
+    title: SafeTextSchema,
+    startDate: createRequiredDateSchema('Start date'),
+    endDate: createRequiredDateSchema('End date'),
+    note: SafeNoteSchema,
+    location: createOptionalSafeTextSchema(
+      VALIDATION.MAX_LOCATION_LENGTH,
+      'Location',
+    ),
+    geocode: z.boolean().optional().default(true),
+    latitude: SafeLatitudeSchema,
+    longitude: SafeLongitudeSchema,
+    url: SafeUrlSchema,
+    isAllDay: z.boolean().optional(),
+    targetCalendar: SafeListNameSchema,
+    recurrence: z.enum(['daily', 'weekly', 'monthly', 'yearly']).optional(),
+    recurrenceInterval: z.number().int().min(1).max(99).optional(),
+    recurrenceEnd: SafeDateSchema,
+    recurrenceCount: z.number().int().min(1).max(999).optional(),
+  })
+  .refine(
+    (data) => (data.latitude === undefined) === (data.longitude === undefined),
+    {
+      message: 'latitude and longitude must be provided together',
+    },
+  );
 
 export const ReadCalendarEventsSchema = z.object({
   id: SafeIdSchema.optional(),
@@ -208,24 +222,34 @@ export const ReadCalendarEventsSchema = z.object({
   enrichContacts: z.boolean().optional().default(true),
 });
 
-export const UpdateCalendarEventSchema = z.object({
-  id: SafeIdSchema,
-  title: SafeTextSchema.optional(),
-  startDate: SafeDateSchema,
-  endDate: SafeDateSchema,
-  note: SafeNoteSchema,
-  location: createOptionalSafeTextSchema(
-    VALIDATION.MAX_LOCATION_LENGTH,
-    'Location',
-  ),
-  url: SafeUrlSchema,
-  isAllDay: z.boolean().optional(),
-  targetCalendar: SafeListNameSchema,
-  recurrence: z.enum(['daily', 'weekly', 'monthly', 'yearly']).optional(),
-  recurrenceInterval: z.number().int().min(1).max(99).optional(),
-  recurrenceEnd: SafeDateSchema,
-  recurrenceCount: z.number().int().min(1).max(999).optional(),
-});
+export const UpdateCalendarEventSchema = z
+  .object({
+    id: SafeIdSchema,
+    title: SafeTextSchema.optional(),
+    startDate: SafeDateSchema,
+    endDate: SafeDateSchema,
+    note: SafeNoteSchema,
+    location: createOptionalSafeTextSchema(
+      VALIDATION.MAX_LOCATION_LENGTH,
+      'Location',
+    ),
+    geocode: z.boolean().optional().default(true),
+    latitude: SafeLatitudeSchema,
+    longitude: SafeLongitudeSchema,
+    url: SafeUrlSchema,
+    isAllDay: z.boolean().optional(),
+    targetCalendar: SafeListNameSchema,
+    recurrence: z.enum(['daily', 'weekly', 'monthly', 'yearly']).optional(),
+    recurrenceInterval: z.number().int().min(1).max(99).optional(),
+    recurrenceEnd: SafeDateSchema,
+    recurrenceCount: z.number().int().min(1).max(999).optional(),
+  })
+  .refine(
+    (data) => (data.latitude === undefined) === (data.longitude === undefined),
+    {
+      message: 'latitude and longitude must be provided together',
+    },
+  );
 
 export const DeleteCalendarEventSchema = z.object({
   id: SafeIdSchema,
