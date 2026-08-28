@@ -19,6 +19,16 @@ import {
   nullToUndefined,
 } from './helpers.js';
 
+/**
+ * Passes alarms to the CLI as comma-separated minute offsets.
+ * An empty array is meaningful — it clears every alarm — so it must still be
+ * sent, unlike the falsy-skipping addOptionalArg.
+ */
+function addAlarmsArg(args: string[], alarms: number[] | undefined): void {
+  if (alarms === undefined) return;
+  args.push('--alarms', alarms.join(','));
+}
+
 class CalendarRepository {
   private async readEvents(
     startDate?: string,
@@ -70,6 +80,7 @@ class CalendarRepository {
       'longitude',
       'url',
       'attendees',
+      'alarms',
     ]) as CalendarEvent;
   }
 
@@ -98,6 +109,7 @@ class CalendarRepository {
         'longitude',
         'url',
         'attendees',
+        'alarms',
       ]),
     ) as CalendarEvent[];
   }
@@ -125,6 +137,7 @@ class CalendarRepository {
     addOptionalNumberArg(args, '--longitude', data.longitude);
     addOptionalArg(args, '--url', data.url);
     addOptionalBooleanArg(args, '--isAllDay', data.isAllDay);
+    addAlarmsArg(args, data.alarms);
     // Recurrence parameters
     if (data.recurrence) {
       addOptionalArg(args, '--recurrence', data.recurrence.frequency);
@@ -157,6 +170,7 @@ class CalendarRepository {
     addOptionalNumberArg(args, '--longitude', data.longitude);
     addOptionalArg(args, '--url', data.url);
     addOptionalBooleanArg(args, '--isAllDay', data.isAllDay);
+    addAlarmsArg(args, data.alarms);
     // Recurrence parameters
     if (data.recurrence) {
       addOptionalArg(args, '--recurrence', data.recurrence.frequency);

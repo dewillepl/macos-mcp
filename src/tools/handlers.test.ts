@@ -296,6 +296,7 @@ describe('Tool Handlers', () => {
         isAllDay: false,
         recurrence: null,
         attendees: [],
+        alarms: null,
       };
       mockCalendarRepository.createEvent.mockResolvedValue(mockEvent);
       const result = await handleCreateCalendarEvent({
@@ -327,6 +328,7 @@ describe('Tool Handlers', () => {
         isAllDay: false,
         recurrence: null,
         attendees: [],
+        alarms: null,
       };
       mockCalendarRepository.updateEvent.mockResolvedValue(mockEvent);
       const result = await handleUpdateCalendarEvent({
@@ -396,6 +398,7 @@ describe('Tool Handlers', () => {
           location: 'Conference Room',
           notes: 'Meeting notes',
           url: 'https://zoom.us/meeting',
+          alarms: [-10080, -2880],
         },
       ];
       mockCalendarRepository.findEvents.mockResolvedValue(mockEvents);
@@ -413,6 +416,7 @@ describe('Tool Handlers', () => {
       expect(content).toContain('- Location: Conference Room');
       expect(content).toContain('- Notes: Meeting notes');
       expect(content).toContain('- URL: https://zoom.us/meeting');
+      expect(content).toContain('- Alerts (minutes from start): -10080, -2880');
       expect(mockCalendarRepository.findAllCalendars).not.toHaveBeenCalled();
     });
 
@@ -440,6 +444,26 @@ describe('Tool Handlers', () => {
       expect(content).toContain('- Notes: Some notes');
       expect(content).toContain('- Location: Office');
       expect(content).toContain('- URL: https://example.com');
+    });
+
+    it('omits the alerts line for an event with no alarms', async () => {
+      mockCalendarRepository.findEvents.mockResolvedValue([
+        {
+          id: 'evt-3',
+          title: 'Alarmless Event',
+          calendar: 'Personal',
+          startDate: '2025-11-15T08:00:00Z',
+          endDate: '2025-11-15T09:00:00Z',
+          isAllDay: false,
+          alarms: [],
+        },
+      ]);
+
+      const result = await handleReadCalendarEvents({ action: 'read' });
+      const content = _getTextContent(result.content);
+
+      expect(content).toContain('- Alarmless Event');
+      expect(content).not.toContain('Alerts');
     });
 
     it('should return empty message when no events found', async () => {

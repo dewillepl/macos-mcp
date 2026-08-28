@@ -184,6 +184,22 @@ export const RecurrenceSchema = z
 export const SafeLatitudeSchema = z.number().min(-90).max(90).optional();
 export const SafeLongitudeSchema = z.number().min(-180).max(180).optional();
 
+// Alerts as whole minutes relative to the event start (negative = before the
+// event, 0 = at time of event), mirroring EKAlarm(relativeOffset:). Bounded to
+// a year either side, which covers every preset Calendar.app offers. An empty
+// array is valid and meaningful: it clears the event's existing alerts.
+const ALARM_OFFSET_LIMIT_MINUTES = 527040; // 366 days
+export const SafeAlarmsSchema = z
+  .array(
+    z
+      .number()
+      .int('Alarm offsets must be whole minutes')
+      .min(-ALARM_OFFSET_LIMIT_MINUTES)
+      .max(ALARM_OFFSET_LIMIT_MINUTES),
+  )
+  .max(10, 'Cannot set more than 10 alarms on an event')
+  .optional();
+
 // Calendar event schemas
 export const CreateCalendarEventSchema = z
   .object({
@@ -200,6 +216,7 @@ export const CreateCalendarEventSchema = z
     longitude: SafeLongitudeSchema,
     url: SafeUrlSchema,
     isAllDay: z.boolean().optional(),
+    alarms: SafeAlarmsSchema,
     targetCalendar: SafeListNameSchema,
     recurrence: z.enum(['daily', 'weekly', 'monthly', 'yearly']).optional(),
     recurrenceInterval: z.number().int().min(1).max(99).optional(),
@@ -238,6 +255,7 @@ export const UpdateCalendarEventSchema = z
     longitude: SafeLongitudeSchema,
     url: SafeUrlSchema,
     isAllDay: z.boolean().optional(),
+    alarms: SafeAlarmsSchema,
     targetCalendar: SafeListNameSchema,
     recurrence: z.enum(['daily', 'weekly', 'monthly', 'yearly']).optional(),
     recurrenceInterval: z.number().int().min(1).max(99).optional(),

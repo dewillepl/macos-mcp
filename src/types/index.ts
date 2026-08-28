@@ -51,6 +51,7 @@ export interface CalendarEvent {
   isAllDay: boolean;
   recurrence?: Recurrence;
   attendees?: string[];
+  alarms?: number[];
 }
 
 /**
@@ -169,6 +170,8 @@ export interface CalendarToolArgs extends BaseToolArgs {
   longitude?: number;
   url?: string;
   isAllDay?: boolean;
+  // Alerts as whole minutes relative to the event start
+  alarms?: number[];
   // Target calendar for create/update operations
   targetCalendar?: string;
   // Recurrence parameters

@@ -38,6 +38,7 @@ const formatEventMarkdown = (event: {
   url?: string;
   isAllDay?: boolean;
   attendees?: string[];
+  alarms?: number[];
 }): string[] => {
   const lines: string[] = [];
   lines.push(`- ${event.title}`);
@@ -55,6 +56,9 @@ const formatEventMarkdown = (event: {
   if (event.url) lines.push(`  - URL: ${event.url}`);
   if (event.attendees && event.attendees.length > 0) {
     lines.push(`  - Attendees: ${event.attendees.join(', ')}`);
+  }
+  if (event.alarms && event.alarms.length > 0) {
+    lines.push(`  - Alerts (minutes from start): ${event.alarms.join(', ')}`);
   }
   return lines;
 };
@@ -87,6 +91,7 @@ export const handleCreateCalendarEvent = async (
       longitude: validatedArgs.longitude,
       url: validatedArgs.url,
       isAllDay: validatedArgs.isAllDay,
+      alarms: validatedArgs.alarms,
       recurrence,
     });
     return formatSuccessMessage('created', 'event', event.title, event.id);
@@ -122,6 +127,7 @@ export const handleUpdateCalendarEvent = async (
       longitude: validatedArgs.longitude,
       url: validatedArgs.url,
       isAllDay: validatedArgs.isAllDay,
+      alarms: validatedArgs.alarms,
       recurrence,
     });
     return formatSuccessMessage('updated', 'event', event.title, event.id);

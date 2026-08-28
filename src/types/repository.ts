@@ -43,6 +43,7 @@ export interface EventJSON {
   isAllDay: boolean;
   recurrence: RecurrenceJSON | null;
   attendees: string[] | null;
+  alarms: number[] | null;
 }
 
 export interface CalendarJSON {
@@ -105,6 +106,7 @@ export interface CreateEventData {
   longitude?: number;
   url?: string;
   isAllDay?: boolean;
+  alarms?: number[];
   recurrence?: RecurrenceData;
 }
 
@@ -121,5 +123,6 @@ export interface UpdateEventData {
   longitude?: number;
   url?: string;
   isAllDay?: boolean;
+  alarms?: number[];
   recurrence?: RecurrenceData;
 }

@@ -498,6 +498,47 @@ describe('CalendarRepository', () => {
         ]),
       );
     });
+    it('should pass alarms as comma-separated minute offsets', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: 'with-alarms',
+        title: 'Alarmed Event',
+        startDate: '2025-11-04T10:00:00+08:00',
+        endDate: '2025-11-04T11:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.createEvent({
+        title: 'Alarmed Event',
+        startDate: '2025-11-04 10:00:00',
+        endDate: '2025-11-04 11:00:00',
+        alarms: [-10080, -2880, 0],
+      });
+
+      expect(mockExecuteCli).toHaveBeenCalledWith(
+        expect.arrayContaining(['--alarms', '-10080,-2880,0']),
+      );
+    });
+
+    it('should not pass --alarms when not specified', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: 'no-alarms',
+        title: 'Plain Event',
+        startDate: '2025-11-04T10:00:00+08:00',
+        endDate: '2025-11-04T11:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.createEvent({
+        title: 'Plain Event',
+        startDate: '2025-11-04 10:00:00',
+        endDate: '2025-11-04 11:00:00',
+      });
+
+      const callArgs = mockExecuteCli.mock.calls[0][0] as string[];
+      expect(callArgs).not.toContain('--alarms');
+    });
   });
 
   describe('updateEvent', () => {
@@ -634,6 +675,45 @@ describe('CalendarRepository', () => {
 
       expect(mockExecuteCli).toHaveBeenCalledWith(
         expect.arrayContaining(['--geocode', 'false']),
+      );
+    });
+    it('should replace alarms when updating', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: 'event-alarms',
+        title: 'Event',
+        startDate: '2025-11-04T10:00:00+08:00',
+        endDate: '2025-11-04T11:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.updateEvent({
+        id: 'event-alarms',
+        alarms: [-60],
+      });
+
+      expect(mockExecuteCli).toHaveBeenCalledWith(
+        expect.arrayContaining(['--alarms', '-60']),
+      );
+    });
+
+    it('should pass an empty --alarms value to clear every alarm', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: 'event-alarms',
+        title: 'Event',
+        startDate: '2025-11-04T10:00:00+08:00',
+        endDate: '2025-11-04T11:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.updateEvent({
+        id: 'event-alarms',
+        alarms: [],
+      });
+
+      expect(mockExecuteCli).toHaveBeenCalledWith(
+        expect.arrayContaining(['--alarms', '']),
       );
     });
   });

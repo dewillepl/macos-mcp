@@ -165,7 +165,7 @@ const _EXTENDED_TOOLS: ExtendedTool[] = [
   {
     name: 'calendar_events',
     description:
-      'Manages Apple Calendar events. Common actions: (1) "What\'s on my calendar?" → read with startDate/endDate range. (2) "Schedule a meeting" → create with title, startDate, endDate. (3) "Move my meeting" → update with id and new startDate/endDate. Supports recurring events via recurrence param (daily/weekly/monthly/yearly). Use filterCalendar to filter by calendar name, search to find events by title/notes/location. Use enrichContacts=true (default) to resolve attendee emails to contact names. Deleting a recurring event only removes the single occurrence. Use calendar_calendars tool first to see available calendar names. `location` is geocoded by default (see the location/geocode params) so created events get a map and a travel-time alert in Calendar.app, same as picking a Suggestions entry in the UI; read returns latitude/longitude when it hit. Related tools: Cross-reference with messages_chat or mail_messages to find conversations about a specific event. Use contacts_people for attendee contact details.',
+      'Manages Apple Calendar events. Common actions: (1) "What\'s on my calendar?" → read with startDate/endDate range. (2) "Schedule a meeting" → create with title, startDate, endDate. (3) "Move my meeting" → update with id and new startDate/endDate. Supports recurring events via recurrence param (daily/weekly/monthly/yearly). Use filterCalendar to filter by calendar name, search to find events by title/notes/location. Use enrichContacts=true (default) to resolve attendee emails to contact names. Deleting a recurring event only removes the single occurrence. Use calendar_calendars tool first to see available calendar names. `location` is geocoded by default (see the location/geocode params) so created events get a map and a travel-time alert in Calendar.app, same as picking a Suggestions entry in the UI; read returns latitude/longitude when it hit. Use `alarms` to set Calendar.app alerts (minutes relative to the event start, e.g. [-10080, -2880] for a week and two days before). Related tools: Cross-reference with messages_chat or mail_messages to find conversations about a specific event. Use contacts_people for attendee contact details.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -229,6 +229,12 @@ const _EXTENDED_TOOLS: ExtendedTool[] = [
         isAllDay: {
           type: 'boolean',
           description: 'Whether the event is an all-day event.',
+        },
+        alarms: {
+          type: 'array',
+          items: { type: 'number' },
+          description:
+            "Alerts for the event, as whole minutes relative to its start: negative is before the event (-10 = '10 minutes before', -1440 = '1 day before', -10080 = '1 week before'), 0 is 'at time of event', positive is after the start. Same thing as Calendar.app's Alert field. On update the list replaces the event's existing alerts wholesale — pass an empty array to remove them all, or omit the param to leave them untouched. Read returns each event's alerts in the same unit.",
         },
         targetCalendar: {
           type: 'string',
