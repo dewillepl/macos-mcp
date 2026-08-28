@@ -57,7 +57,7 @@ async function main() {
 
   // Use -Xlinker to embed Info.plist into the binary
   // This is required for macOS to show permission dialogs for EventKit access
-  const compileCommand = `swiftc -o "${outputFile}" "${sourceFile}" -framework EventKit -framework Foundation -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker "${infoPlistFile}"`;
+  const compileCommand = `swiftc -o "${outputFile}" "${sourceFile}" -framework EventKit -framework Foundation -framework MapKit -framework CoreLocation -framework Contacts -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker "${infoPlistFile}"`;
 
   console.log(`Compiling ${sourceFile}...`);
 

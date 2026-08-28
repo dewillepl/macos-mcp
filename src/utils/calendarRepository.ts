@@ -19,6 +19,16 @@ import {
   nullToUndefined,
 } from './helpers.js';
 
+/**
+ * Passes alarms to the CLI as comma-separated minute offsets.
+ * An empty array is meaningful — it clears every alarm — so it must still be
+ * sent, unlike the falsy-skipping addOptionalArg.
+ */
+function addAlarmsArg(args: string[], alarms: number[] | undefined): void {
+  if (alarms === undefined) return;
+  args.push('--alarms', alarms.join(','));
+}
+
 class CalendarRepository {
   private async readEvents(
     startDate?: string,
@@ -66,8 +76,11 @@ class CalendarRepository {
     return nullToUndefined(event, [
       'notes',
       'location',
+      'latitude',
+      'longitude',
       'url',
       'attendees',
+      'alarms',
     ]) as CalendarEvent;
   }
 
@@ -89,7 +102,15 @@ class CalendarRepository {
       filters.search,
     );
     return events.map((e) =>
-      nullToUndefined(e, ['notes', 'location', 'url', 'attendees']),
+      nullToUndefined(e, [
+        'notes',
+        'location',
+        'latitude',
+        'longitude',
+        'url',
+        'attendees',
+        'alarms',
+      ]),
     ) as CalendarEvent[];
   }
 
@@ -111,8 +132,12 @@ class CalendarRepository {
     addOptionalArg(args, '--targetCalendar', data.calendar);
     addOptionalArg(args, '--note', data.notes);
     addOptionalArg(args, '--location', data.location);
+    addOptionalBooleanArg(args, '--geocode', data.geocode);
+    addOptionalNumberArg(args, '--latitude', data.latitude);
+    addOptionalNumberArg(args, '--longitude', data.longitude);
     addOptionalArg(args, '--url', data.url);
     addOptionalBooleanArg(args, '--isAllDay', data.isAllDay);
+    addAlarmsArg(args, data.alarms);
     // Recurrence parameters
     if (data.recurrence) {
       addOptionalArg(args, '--recurrence', data.recurrence.frequency);
@@ -140,8 +165,12 @@ class CalendarRepository {
     addOptionalArg(args, '--endDate', data.endDate);
     addOptionalArg(args, '--note', data.notes);
     addOptionalArg(args, '--location', data.location);
+    addOptionalBooleanArg(args, '--geocode', data.geocode);
+    addOptionalNumberArg(args, '--latitude', data.latitude);
+    addOptionalNumberArg(args, '--longitude', data.longitude);
     addOptionalArg(args, '--url', data.url);
     addOptionalBooleanArg(args, '--isAllDay', data.isAllDay);
+    addAlarmsArg(args, data.alarms);
     // Recurrence parameters
     if (data.recurrence) {
       addOptionalArg(args, '--recurrence', data.recurrence.frequency);

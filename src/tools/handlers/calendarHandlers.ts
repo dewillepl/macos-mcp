@@ -33,9 +33,12 @@ const formatEventMarkdown = (event: {
   endDate?: string;
   notes?: string;
   location?: string;
+  latitude?: number;
+  longitude?: number;
   url?: string;
   isAllDay?: boolean;
   attendees?: string[];
+  alarms?: number[];
 }): string[] => {
   const lines: string[] = [];
   lines.push(`- ${event.title}`);
@@ -45,11 +48,17 @@ const formatEventMarkdown = (event: {
   if (event.endDate) lines.push(`  - End: ${event.endDate}`);
   if (event.isAllDay) lines.push(`  - All Day: ${event.isAllDay}`);
   if (event.location) lines.push(`  - Location: ${event.location}`);
+  if (event.latitude !== undefined && event.longitude !== undefined) {
+    lines.push(`  - Coordinates: ${event.latitude}, ${event.longitude}`);
+  }
   if (event.notes)
     lines.push(`  - Notes: ${formatMultilineNotes(event.notes)}`);
   if (event.url) lines.push(`  - URL: ${event.url}`);
   if (event.attendees && event.attendees.length > 0) {
     lines.push(`  - Attendees: ${event.attendees.join(', ')}`);
+  }
+  if (event.alarms && event.alarms.length > 0) {
+    lines.push(`  - Alerts (minutes from start): ${event.alarms.join(', ')}`);
   }
   return lines;
 };
@@ -77,8 +86,12 @@ export const handleCreateCalendarEvent = async (
       calendar: validatedArgs.targetCalendar,
       notes: validatedArgs.note,
       location: validatedArgs.location,
+      geocode: validatedArgs.geocode,
+      latitude: validatedArgs.latitude,
+      longitude: validatedArgs.longitude,
       url: validatedArgs.url,
       isAllDay: validatedArgs.isAllDay,
+      alarms: validatedArgs.alarms,
       recurrence,
     });
     return formatSuccessMessage('created', 'event', event.title, event.id);
@@ -109,8 +122,12 @@ export const handleUpdateCalendarEvent = async (
       calendar: validatedArgs.targetCalendar,
       notes: validatedArgs.note,
       location: validatedArgs.location,
+      geocode: validatedArgs.geocode,
+      latitude: validatedArgs.latitude,
+      longitude: validatedArgs.longitude,
       url: validatedArgs.url,
       isAllDay: validatedArgs.isAllDay,
+      alarms: validatedArgs.alarms,
       recurrence,
     });
     return formatSuccessMessage('updated', 'event', event.title, event.id);

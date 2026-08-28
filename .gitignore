@@ -195,6 +195,40 @@ macos-mcp.config.json
 2026-*.txt
 marketing/
 
+# Local task briefs / instructions handed to an agent (not for remote)
+*-brief.md
+*-notes.md
+briefs/
+
 # MCPB build artifacts
 mcpb-build/
 dist-mcpb/
+*.mcpb
+
+# Swift universal-build intermediates (bin/dev.cjs and bin/run.cjs stay tracked)
+/bin/EventKitCLI.*
+
+# Local scratch, screenshots and ad-hoc test output — never for remote.
+# The project's own suites (src/**/*.test.ts, tests/e2e/) are tracked on purpose.
+scratch/
+scratchpad/
+tmp/
+.tmp/
+*.tmp
+screenshots/
+Screenshot*.png
+Zrzut*.png
+test-output/
+test-results/
+playwright-report/
+
+# Editor leftovers
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS metadata
+._*
+.Spotlight-V100
+.Trashes

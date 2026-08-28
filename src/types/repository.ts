@@ -37,10 +37,13 @@ export interface EventJSON {
   endDate: string;
   notes: string | null;
   location: string | null;
+  latitude: number | null;
+  longitude: number | null;
   url: string | null;
   isAllDay: boolean;
   recurrence: RecurrenceJSON | null;
   attendees: string[] | null;
+  alarms: number[] | null;
 }
 
 export interface CalendarJSON {
@@ -98,8 +101,12 @@ export interface CreateEventData {
   calendar?: string;
   notes?: string;
   location?: string;
+  geocode?: boolean;
+  latitude?: number;
+  longitude?: number;
   url?: string;
   isAllDay?: boolean;
+  alarms?: number[];
   recurrence?: RecurrenceData;
 }
 
@@ -111,7 +118,11 @@ export interface UpdateEventData {
   calendar?: string;
   notes?: string;
   location?: string;
+  geocode?: boolean;
+  latitude?: number;
+  longitude?: number;
   url?: string;
   isAllDay?: boolean;
+  alarms?: number[];
   recurrence?: RecurrenceData;
 }

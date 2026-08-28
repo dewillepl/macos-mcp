@@ -1,6 +1,9 @@
 import Foundation
 import Dispatch
 import EventKit
+import MapKit
+import CoreLocation
+import Contacts
 
 // MARK: - Output Structures & JSON Models
 struct StandardOutput<T: Codable>: Codable { let status = "success"; let result: T }
@@ -11,7 +14,7 @@ struct DeleteListResult: Codable { let title: String; let deleted = true }
 struct ReminderJSON: Codable { let id: String, title: String, isCompleted: Bool, list: String, notes: String?, url: String?, dueDate: String? }
 struct ListJSON: Codable { let id: String, title: String }
 struct RecurrenceJSON: Codable { let frequency: String, interval: Int, endDate: String?, occurrenceCount: Int? }
-struct EventJSON: Codable { let id: String, title: String, calendar: String, startDate: String, endDate: String, notes: String?, location: String?, url: String?, isAllDay: Bool, recurrence: RecurrenceJSON?, attendees: [String]? }
+struct EventJSON: Codable { let id: String, title: String, calendar: String, startDate: String, endDate: String, notes: String?, location: String?, latitude: Double?, longitude: Double?, url: String?, isAllDay: Bool, recurrence: RecurrenceJSON?, attendees: [String]?, alarms: [Int]? }
 struct CalendarJSON: Codable { let id: String, title: String }
 struct EventsReadResult: Codable { let calendars: [CalendarJSON]; let events: [EventJSON] }
 
@@ -155,6 +158,131 @@ private func parseDateComponents(from dateString: String) -> DateComponents? {
     }
 
     return nil
+}
+
+// MARK: - Location Geocoding Helper
+//
+// MKLocalSearch/CLGeocoder completion handlers can land on the main queue.
+// This whole CLI runs its EventKit calls synchronously on the main thread
+// *before* RunLoop.main.run() is ever reached (see main()), so a plain
+// DispatchSemaphore.wait() would deadlock waiting for a main-queue block
+// that can never be dispatched. Pumping the run loop in short bursts while
+// polling the semaphore lets such callbacks fire either way.
+private func waitWithRunLoop(_ semaphore: DispatchSemaphore, timeout: TimeInterval) -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    while true {
+        if semaphore.wait(timeout: .now()) == .success { return true }
+        if Date() >= deadline { return false }
+        RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+    }
+}
+
+private func formattedTitle(name: String?, postalAddress: CNPostalAddress?, fallback: String?) -> String {
+    let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    guard let postalAddress = postalAddress else {
+        return trimmedName.isEmpty ? (fallback ?? "") : trimmedName
+    }
+    let addressString = CNPostalAddressFormatter()
+        .string(from: postalAddress)
+        .replacingOccurrences(of: "\n", with: ", ")
+    if trimmedName.isEmpty { return addressString }
+    if addressString.isEmpty { return trimmedName }
+    return "\(trimmedName), \(addressString)"
+}
+
+// MKLocalSearch hits the same POI backend as the Suggestions dropdown in
+// Calendar.app's location field — try it first so named places resolve the
+// way the UI would resolve them.
+private func geocodeWithMKLocalSearch(_ query: String, timeout: TimeInterval) -> (title: String, coordinate: CLLocationCoordinate2D)? {
+    let request = MKLocalSearch.Request()
+    request.naturalLanguageQuery = query
+    let search = MKLocalSearch(request: request)
+    let semaphore = DispatchSemaphore(value: 0)
+    var foundItem: MKMapItem?
+    search.start { response, _ in
+        foundItem = response?.mapItems.first
+        semaphore.signal()
+    }
+    guard waitWithRunLoop(semaphore, timeout: timeout), let mapItem = foundItem else { return nil }
+    let title = formattedTitle(name: mapItem.name, postalAddress: mapItem.placemark.postalAddress, fallback: mapItem.placemark.title)
+    return (title, mapItem.placemark.coordinate)
+}
+
+// Fallback for plain addresses that aren't named POIs — CLGeocoder trades
+// POI-awareness for better hit rates on "street, city, country" style input.
+private func geocodeWithCLGeocoder(_ query: String, timeout: TimeInterval) -> (title: String, coordinate: CLLocationCoordinate2D)? {
+    let geocoder = CLGeocoder()
+    let semaphore = DispatchSemaphore(value: 0)
+    var foundPlacemark: CLPlacemark?
+    geocoder.geocodeAddressString(query) { placemarks, _ in
+        foundPlacemark = placemarks?.first
+        semaphore.signal()
+    }
+    guard waitWithRunLoop(semaphore, timeout: timeout), let placemark = foundPlacemark, let location = placemark.location else { return nil }
+    let title = formattedTitle(name: placemark.name, postalAddress: placemark.postalAddress, fallback: placemark.name)
+    return (title, location.coordinate)
+}
+
+// Best-effort: MKLocalSearch, then CLGeocoder, then give up. Never throws —
+// callers fall back to a flat, ungeocoded location string. Each attempt is
+// individually timeout-bounded so a slow/offline network can't hang the CLI.
+private func geocodeLocation(_ query: String) -> (title: String, coordinate: CLLocationCoordinate2D)? {
+    if let hit = geocodeWithMKLocalSearch(query, timeout: 6) { return hit }
+    return geocodeWithCLGeocoder(query, timeout: 6)
+}
+
+// Sets event.structuredLocation (title + geoLocation) so Calendar.app shows
+// a map and offers "Alert when I need to leave". Explicit coordinates bypass
+// the geocoder entirely; geocode=false keeps the old flat-string behavior;
+// otherwise we geocode and degrade to a flat string on a miss or offline —
+// this must never throw, a bad location string is not a fatal error.
+private func applyLocation(to event: EKEvent, rawLocation: String, geocode: Bool, explicitLatitude: Double?, explicitLongitude: Double?) {
+    if let lat = explicitLatitude, let lon = explicitLongitude {
+        let structured = EKStructuredLocation(title: rawLocation)
+        structured.geoLocation = CLLocation(latitude: lat, longitude: lon)
+        structured.radius = 100
+        event.structuredLocation = structured
+        return
+    }
+    guard geocode else {
+        event.location = rawLocation
+        return
+    }
+    guard let hit = geocodeLocation(rawLocation) else {
+        event.location = rawLocation
+        return
+    }
+    let structured = EKStructuredLocation(title: hit.title)
+    structured.geoLocation = CLLocation(latitude: hit.coordinate.latitude, longitude: hit.coordinate.longitude)
+    structured.radius = 100
+    event.structuredLocation = structured
+}
+
+// MARK: - Alarm Helper
+
+// Parses the --alarms value: comma-separated whole minutes relative to the
+// event start (negative = before the event, 0 = at time of event), matching
+// Calendar.app's Alert field. An empty string is meaningful, not missing —
+// it is how a caller clears every alert.
+private func parseAlarmOffsets(_ spec: String) throws -> [Int] {
+    let trimmed = spec.trimmingCharacters(in: .whitespaces)
+    guard !trimmed.isEmpty else { return [] }
+    return try trimmed.split(separator: ",").map { part in
+        let raw = part.trimmingCharacters(in: .whitespaces)
+        guard let minutes = Int(raw) else {
+            throw NSError(domain: "", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid alarm offset '\(raw)'. Use whole minutes relative to the event start, e.g. '-10080,-2880,0'."])
+        }
+        return minutes
+    }
+}
+
+// Replaces the event's alarms wholesale — Calendar.app's Alert field has no
+// merge semantics, and an empty list is how a caller removes every alert.
+private func applyAlarms(to event: EKEvent, offsetsInMinutes: [Int]) {
+    for existing in event.alarms ?? [] { event.removeAlarm(existing) }
+    for minutes in offsetsInMinutes {
+        event.addAlarm(EKAlarm(relativeOffset: TimeInterval(minutes * 60)))
+    }
 }
 
 // MARK: - RemindersManager Class
@@ -377,7 +505,7 @@ class RemindersManager {
         return filtered.map { $0.toJSON() }
     }
     
-    func createEvent(title: String, calendarName: String?, startDateString: String, endDateString: String, notes: String?, location: String?, urlString: String?, isAllDay: Bool?, recurrence: String?, recurrenceInterval: Int?, recurrenceEnd: String?, recurrenceCount: Int?) throws -> EventJSON {
+    func createEvent(title: String, calendarName: String?, startDateString: String, endDateString: String, notes: String?, location: String?, geocode: Bool, latitude: Double?, longitude: Double?, urlString: String?, isAllDay: Bool?, alarms: String?, recurrence: String?, recurrenceInterval: Int?, recurrenceEnd: String?, recurrenceCount: Int?) throws -> EventJSON {
         let event = EKEvent(eventStore: eventStore)
         event.calendar = try findCalendar(named: calendarName)
         event.title = title
@@ -396,9 +524,14 @@ class RemindersManager {
         event.isAllDay = isAllDay ?? false
 
         if let notesStr = notes { event.notes = notesStr }
-        if let locationStr = location { event.location = locationStr }
+        if let locationStr = location {
+            applyLocation(to: event, rawLocation: locationStr, geocode: geocode, explicitLatitude: latitude, explicitLongitude: longitude)
+        }
         if let urlStr = urlString, !urlStr.isEmpty, let url = URL(string: urlStr) {
             event.url = url
+        }
+        if let alarmSpec = alarms {
+            applyAlarms(to: event, offsetsInMinutes: try parseAlarmOffsets(alarmSpec))
         }
 
         // Handle recurrence rule
@@ -437,7 +570,7 @@ class RemindersManager {
         return eventStore.event(withIdentifier: id)
     }
     
-    func updateEvent(id: String, title: String?, calendarName: String?, startDateString: String?, endDateString: String?, notes: String?, location: String?, urlString: String?, isAllDay: Bool?, recurrence: String?, recurrenceInterval: Int?, recurrenceEnd: String?, recurrenceCount: Int?) throws -> EventJSON {
+    func updateEvent(id: String, title: String?, calendarName: String?, startDateString: String?, endDateString: String?, notes: String?, location: String?, geocode: Bool, latitude: Double?, longitude: Double?, urlString: String?, isAllDay: Bool?, alarms: String?, recurrence: String?, recurrenceInterval: Int?, recurrenceEnd: String?, recurrenceCount: Int?) throws -> EventJSON {
         guard let event = findEvent(withId: id) else {
             throw NSError(domain: "", code: 404, userInfo: [NSLocalizedDescriptionKey: "Event with ID '\(id)' not found."])
         }
@@ -477,7 +610,9 @@ class RemindersManager {
         }
 
         if let notesStr = notes { event.notes = notesStr }
-        if let locationStr = location { event.location = locationStr }
+        if let locationStr = location {
+            applyLocation(to: event, rawLocation: locationStr, geocode: geocode, explicitLatitude: latitude, explicitLongitude: longitude)
+        }
         if let urlStr = urlString {
             if urlStr.isEmpty {
                 event.url = nil
@@ -486,6 +621,9 @@ class RemindersManager {
             }
         }
         if let allDay = isAllDay { event.isAllDay = allDay }
+        if let alarmSpec = alarms {
+            applyAlarms(to: event, offsetsInMinutes: try parseAlarmOffsets(alarmSpec))
+        }
 
         // Handle recurrence rule update
         if let recurrenceStr = recurrence {
@@ -632,6 +770,20 @@ extension EKEvent {
             return nil
         }
 
+        let coordinate = self.structuredLocation?.geoLocation?.coordinate
+
+        // Alarms are reported in the same unit callers pass in: whole minutes
+        // relative to the event start. An absolute alarm carries no
+        // relativeOffset, so derive its offset from the start date.
+        let alarmOffsets: [Int]? = self.alarms.map { alarms in
+            alarms.map { alarm -> Int in
+                if let absolute = alarm.absoluteDate {
+                    return Int((absolute.timeIntervalSince(self.startDate) / 60).rounded())
+                }
+                return Int((alarm.relativeOffset / 60).rounded())
+            }
+        }
+
         return EventJSON(
             id: self.eventIdentifier,
             title: self.title,
@@ -640,10 +792,13 @@ extension EKEvent {
             endDate: formatEventDate(self.endDate, preferredTimeZone: eventTimeZone, includeTime: includeTime),
             notes: self.notes,
             location: self.location,
+            latitude: coordinate?.latitude,
+            longitude: coordinate?.longitude,
             url: self.url?.absoluteString,
             isAllDay: self.isAllDay,
             recurrence: recurrence,
-            attendees: attendeeNames
+            attendees: attendeeNames,
+            alarms: alarmOffsets
         )
     }
 }
@@ -756,11 +911,11 @@ func main() {
                 guard let title = parser.get("title") else { throw NSError(domain: "", code: 400, userInfo: [NSLocalizedDescriptionKey: "--title required."]) }
                 guard let startDate = parser.get("startDate") else { throw NSError(domain: "", code: 400, userInfo: [NSLocalizedDescriptionKey: "--startDate required."]) }
                 guard let endDate = parser.get("endDate") else { throw NSError(domain: "", code: 400, userInfo: [NSLocalizedDescriptionKey: "--endDate required."]) }
-                let event = try manager.createEvent(title: title, calendarName: parser.get("targetCalendar"), startDateString: startDate, endDateString: endDate, notes: parser.get("note"), location: parser.get("location"), urlString: parser.get("url"), isAllDay: parser.get("isAllDay").map { $0 == "true" }, recurrence: parser.get("recurrence"), recurrenceInterval: parser.get("recurrenceInterval").flatMap(Int.init), recurrenceEnd: parser.get("recurrenceEnd"), recurrenceCount: parser.get("recurrenceCount").flatMap(Int.init))
+                let event = try manager.createEvent(title: title, calendarName: parser.get("targetCalendar"), startDateString: startDate, endDateString: endDate, notes: parser.get("note"), location: parser.get("location"), geocode: parser.get("geocode") != "false", latitude: parser.get("latitude").flatMap(Double.init), longitude: parser.get("longitude").flatMap(Double.init), urlString: parser.get("url"), isAllDay: parser.get("isAllDay").map { $0 == "true" }, alarms: parser.get("alarms"), recurrence: parser.get("recurrence"), recurrenceInterval: parser.get("recurrenceInterval").flatMap(Int.init), recurrenceEnd: parser.get("recurrenceEnd"), recurrenceCount: parser.get("recurrenceCount").flatMap(Int.init))
                 print(String(data: try encoder.encode(StandardOutput(result: event)), encoding: .utf8)!)
             case "update-event":
                 guard let id = parser.get("id") else { throw NSError(domain: "", code: 400, userInfo: [NSLocalizedDescriptionKey: "--id required."]) }
-                let event = try manager.updateEvent(id: id, title: parser.get("title"), calendarName: parser.get("targetCalendar"), startDateString: parser.get("startDate"), endDateString: parser.get("endDate"), notes: parser.get("note"), location: parser.get("location"), urlString: parser.get("url"), isAllDay: parser.get("isAllDay").map { $0 == "true" }, recurrence: parser.get("recurrence"), recurrenceInterval: parser.get("recurrenceInterval").flatMap(Int.init), recurrenceEnd: parser.get("recurrenceEnd"), recurrenceCount: parser.get("recurrenceCount").flatMap(Int.init))
+                let event = try manager.updateEvent(id: id, title: parser.get("title"), calendarName: parser.get("targetCalendar"), startDateString: parser.get("startDate"), endDateString: parser.get("endDate"), notes: parser.get("note"), location: parser.get("location"), geocode: parser.get("geocode") != "false", latitude: parser.get("latitude").flatMap(Double.init), longitude: parser.get("longitude").flatMap(Double.init), urlString: parser.get("url"), isAllDay: parser.get("isAllDay").map { $0 == "true" }, alarms: parser.get("alarms"), recurrence: parser.get("recurrence"), recurrenceInterval: parser.get("recurrenceInterval").flatMap(Int.init), recurrenceEnd: parser.get("recurrenceEnd"), recurrenceCount: parser.get("recurrenceCount").flatMap(Int.init))
                 print(String(data: try encoder.encode(StandardOutput(result: event)), encoding: .utf8)!)
             case "delete-event":
                 guard let id = parser.get("id") else { throw NSError(domain: "", code: 400, userInfo: [NSLocalizedDescriptionKey: "--id required."]) }

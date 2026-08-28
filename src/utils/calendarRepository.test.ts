@@ -66,6 +66,61 @@ describe('CalendarRepository', () => {
       });
     });
 
+    it('should convert null latitude/longitude to undefined for an ungeocoded location', async () => {
+      const mockEvents: Partial<CalendarEvent>[] = [
+        {
+          id: '3',
+          title: 'Ungeocoded Event',
+          startDate: '2025-11-04T09:00:00+08:00',
+          endDate: '2025-11-04T10:00:00+08:00',
+          calendar: 'Work',
+          isAllDay: false,
+          location: 'a total nonsense place 12345',
+          // @ts-expect-error simulating raw CLI JSON where geocoding missed
+          latitude: null,
+          // @ts-expect-error simulating raw CLI JSON where geocoding missed
+          longitude: null,
+        },
+      ];
+
+      mockExecuteCli.mockResolvedValue({
+        calendars: [],
+        events: mockEvents,
+      });
+
+      const result = await repository.findEventById('3');
+
+      expect(result.latitude).toBeUndefined();
+      expect(result.longitude).toBeUndefined();
+      expect(result.location).toBe('a total nonsense place 12345');
+    });
+
+    it('should surface latitude/longitude for a geocoded location', async () => {
+      const mockEvents: Partial<CalendarEvent>[] = [
+        {
+          id: '4',
+          title: 'Geocoded Event',
+          startDate: '2025-11-04T09:00:00+08:00',
+          endDate: '2025-11-04T10:00:00+08:00',
+          calendar: 'Work',
+          isAllDay: false,
+          location: 'Sofitel Warsaw Victoria, Królewska 11, Warszawa',
+          latitude: 52.2419,
+          longitude: 21.0138,
+        },
+      ];
+
+      mockExecuteCli.mockResolvedValue({
+        calendars: [],
+        events: mockEvents,
+      });
+
+      const result = await repository.findEventById('4');
+
+      expect(result.latitude).toBe(52.2419);
+      expect(result.longitude).toBe(21.0138);
+    });
+
     it('should throw error when event not found', async () => {
       const mockEvents: Partial<CalendarEvent>[] = [
         {
@@ -368,6 +423,122 @@ describe('CalendarRepository', () => {
       expect(callArgs).not.toContain('--recurrenceEnd');
       expect(callArgs).not.toContain('--recurrenceCount');
     });
+
+    it('should not pass --geocode/--latitude/--longitude when not specified', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: 'no-geo',
+        title: 'Plain Event',
+        startDate: '2025-11-04T10:00:00+08:00',
+        endDate: '2025-11-04T11:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.createEvent({
+        title: 'Plain Event',
+        startDate: '2025-11-04 10:00:00',
+        endDate: '2025-11-04 11:00:00',
+        location: 'Some Cafe',
+      });
+
+      const callArgs = mockExecuteCli.mock.calls[0][0] as string[];
+      expect(callArgs).not.toContain('--geocode');
+      expect(callArgs).not.toContain('--latitude');
+      expect(callArgs).not.toContain('--longitude');
+    });
+
+    it('should pass geocode=false to disable geocoding', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: 'flat-loc',
+        title: 'Flat Location Event',
+        startDate: '2025-11-04T10:00:00+08:00',
+        endDate: '2025-11-04T11:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.createEvent({
+        title: 'Flat Location Event',
+        startDate: '2025-11-04 10:00:00',
+        endDate: '2025-11-04 11:00:00',
+        location: 'Somewhere',
+        geocode: false,
+      });
+
+      expect(mockExecuteCli).toHaveBeenCalledWith(
+        expect.arrayContaining(['--geocode', 'false']),
+      );
+    });
+
+    it('should pass explicit latitude/longitude to bypass the geocoder', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: 'explicit-geo',
+        title: 'Explicit Coords Event',
+        startDate: '2025-11-04T10:00:00+08:00',
+        endDate: '2025-11-04T11:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.createEvent({
+        title: 'Explicit Coords Event',
+        startDate: '2025-11-04 10:00:00',
+        endDate: '2025-11-04 11:00:00',
+        location: 'Sofitel Warsaw Victoria',
+        latitude: 52.2419,
+        longitude: 21.0138,
+      });
+
+      expect(mockExecuteCli).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          '--latitude',
+          '52.2419',
+          '--longitude',
+          '21.0138',
+        ]),
+      );
+    });
+    it('should pass alarms as comma-separated minute offsets', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: 'with-alarms',
+        title: 'Alarmed Event',
+        startDate: '2025-11-04T10:00:00+08:00',
+        endDate: '2025-11-04T11:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.createEvent({
+        title: 'Alarmed Event',
+        startDate: '2025-11-04 10:00:00',
+        endDate: '2025-11-04 11:00:00',
+        alarms: [-10080, -2880, 0],
+      });
+
+      expect(mockExecuteCli).toHaveBeenCalledWith(
+        expect.arrayContaining(['--alarms', '-10080,-2880,0']),
+      );
+    });
+
+    it('should not pass --alarms when not specified', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: 'no-alarms',
+        title: 'Plain Event',
+        startDate: '2025-11-04T10:00:00+08:00',
+        endDate: '2025-11-04T11:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.createEvent({
+        title: 'Plain Event',
+        startDate: '2025-11-04 10:00:00',
+        endDate: '2025-11-04 11:00:00',
+      });
+
+      const callArgs = mockExecuteCli.mock.calls[0][0] as string[];
+      expect(callArgs).not.toContain('--alarms');
+    });
   });
 
   describe('updateEvent', () => {
@@ -464,6 +635,86 @@ describe('CalendarRepository', () => {
 
       const callArgs = mockExecuteCli.mock.calls[0][0] as string[];
       expect(callArgs).not.toContain('--recurrence');
+    });
+
+    it('should update event location with re-geocoding by default', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: '1',
+        title: 'Moved Meeting',
+        startDate: '2025-11-04T09:00:00+08:00',
+        endDate: '2025-11-04T10:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.updateEvent({
+        id: '1',
+        location: 'Sofitel Warsaw Victoria',
+      });
+
+      const callArgs = mockExecuteCli.mock.calls[0][0] as string[];
+      expect(callArgs).toContain('--location');
+      expect(callArgs).not.toContain('--geocode');
+    });
+
+    it('should pass geocode=false when updating location without geocoding', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: '1',
+        title: 'Moved Meeting',
+        startDate: '2025-11-04T09:00:00+08:00',
+        endDate: '2025-11-04T10:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.updateEvent({
+        id: '1',
+        location: 'Somewhere else',
+        geocode: false,
+      });
+
+      expect(mockExecuteCli).toHaveBeenCalledWith(
+        expect.arrayContaining(['--geocode', 'false']),
+      );
+    });
+    it('should replace alarms when updating', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: 'event-alarms',
+        title: 'Event',
+        startDate: '2025-11-04T10:00:00+08:00',
+        endDate: '2025-11-04T11:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.updateEvent({
+        id: 'event-alarms',
+        alarms: [-60],
+      });
+
+      expect(mockExecuteCli).toHaveBeenCalledWith(
+        expect.arrayContaining(['--alarms', '-60']),
+      );
+    });
+
+    it('should pass an empty --alarms value to clear every alarm', async () => {
+      mockExecuteCli.mockResolvedValue({
+        id: 'event-alarms',
+        title: 'Event',
+        startDate: '2025-11-04T10:00:00+08:00',
+        endDate: '2025-11-04T11:00:00+08:00',
+        calendar: 'Work',
+        isAllDay: false,
+      });
+
+      await repository.updateEvent({
+        id: 'event-alarms',
+        alarms: [],
+      });
+
+      expect(mockExecuteCli).toHaveBeenCalledWith(
+        expect.arrayContaining(['--alarms', '']),
+      );
     });
   });
 
