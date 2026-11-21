@@ -121,6 +121,22 @@ const DueWithinEnum = z
   .enum(['today', 'tomorrow', 'this-week', 'overdue', 'no-date'])
   .optional();
 
+// Alerts as whole minutes relative to a reference time — the event start for
+// calendar events, the due date for reminders (negative = before, 0 = at that
+// time). Bounded to a year either side, which covers every preset Calendar.app
+// offers. An empty array is valid and meaningful: it clears existing alerts.
+const ALARM_OFFSET_LIMIT_MINUTES = 527040; // 366 days
+export const SafeAlarmsSchema = z
+  .array(
+    z
+      .number()
+      .int('Alarm offsets must be whole minutes')
+      .min(-ALARM_OFFSET_LIMIT_MINUTES)
+      .max(ALARM_OFFSET_LIMIT_MINUTES),
+  )
+  .max(10, 'Cannot set more than 10 alarms')
+  .optional();
+
 /**
  * Common field combinations for reusability
  */
@@ -130,6 +146,7 @@ const BaseReminderFields = {
   note: SafeNoteSchema,
   url: SafeUrlSchema,
   targetList: SafeListNameSchema,
+  alarms: SafeAlarmsSchema,
 };
 
 export const SafeIdSchema = z.string().min(1, 'ID cannot be empty');
@@ -162,6 +179,7 @@ export const UpdateReminderSchema = z.object({
   url: SafeUrlSchema,
   completed: z.boolean().optional(),
   targetList: SafeListNameSchema,
+  alarms: SafeAlarmsSchema,
 });
 
 export const DeleteReminderSchema = z.object({
@@ -183,22 +201,6 @@ export const RecurrenceSchema = z
 // Coordinates for an explicit geocoder bypass — WGS84 range.
 export const SafeLatitudeSchema = z.number().min(-90).max(90).optional();
 export const SafeLongitudeSchema = z.number().min(-180).max(180).optional();
-
-// Alerts as whole minutes relative to the event start (negative = before the
-// event, 0 = at time of event), mirroring EKAlarm(relativeOffset:). Bounded to
-// a year either side, which covers every preset Calendar.app offers. An empty
-// array is valid and meaningful: it clears the event's existing alerts.
-const ALARM_OFFSET_LIMIT_MINUTES = 527040; // 366 days
-export const SafeAlarmsSchema = z
-  .array(
-    z
-      .number()
-      .int('Alarm offsets must be whole minutes')
-      .min(-ALARM_OFFSET_LIMIT_MINUTES)
-      .max(ALARM_OFFSET_LIMIT_MINUTES),
-  )
-  .max(10, 'Cannot set more than 10 alarms on an event')
-  .optional();
 
 // Calendar event schemas
 export const CreateCalendarEventSchema = z

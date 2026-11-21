@@ -148,6 +148,40 @@ describe('Tool Handlers', () => {
       expect(content).toContain('- URL: https://example.com');
     });
 
+    it('shows alerts for a dated reminder and warns when it has none', async () => {
+      mockReminderRepository.findReminders.mockResolvedValue([
+        {
+          id: '1',
+          title: 'With alerts',
+          isCompleted: false,
+          list: 'WORK',
+          dueDate: '2026-11-25T18:00:00+01:00',
+          alarms: [-10080, 0],
+        },
+        {
+          id: '2',
+          title: 'Silent',
+          isCompleted: false,
+          list: 'WORK',
+          dueDate: '2026-11-25T18:00:00+01:00',
+        },
+        {
+          id: '3',
+          title: 'Undated',
+          isCompleted: false,
+          list: 'WORK',
+        },
+      ]);
+
+      const result = await handleReadReminders({ action: 'read' });
+      const content = _getTextContent(result.content);
+
+      expect(content).toContain('- Alerts (minutes from due): -10080, 0');
+      expect(content.match(/Alerts: none \(will NOT notify\)/g)).toHaveLength(
+        1,
+      );
+    });
+
     it('returns empty state messaging when no reminders match', async () => {
       mockReminderRepository.findReminders.mockResolvedValue([]);
 
@@ -169,6 +203,7 @@ describe('Tool Handlers', () => {
         notes: null,
         url: null,
         dueDate: null,
+        alarms: null,
       };
       mockReminderRepository.createReminder.mockResolvedValue(newReminder);
       const result = await handleCreateReminder({
@@ -191,6 +226,7 @@ describe('Tool Handlers', () => {
         notes: null,
         url: null,
         dueDate: null,
+        alarms: null,
       };
       mockReminderRepository.updateReminder.mockResolvedValue(updatedReminder);
       const result = await handleUpdateReminder({

@@ -456,6 +456,80 @@ describe('ReminderRepository', () => {
     });
   });
 
+  describe('alarms', () => {
+    it('passes alarms on create as comma-separated minutes', async () => {
+      mockExecuteCli.mockResolvedValue({ id: '1' });
+
+      await repository.createReminder({
+        title: 'Cert swap',
+        dueDate: '2026-11-25 18:00:00',
+        alarms: [-10080, -2880, 0],
+      });
+
+      const args = mockExecuteCli.mock.calls[0][0];
+      const i = args.indexOf('--alarms');
+      expect(i).toBeGreaterThan(-1);
+      expect(args[i + 1]).toBe('-10080,-2880,0');
+    });
+
+    it('passes alarms on update', async () => {
+      mockExecuteCli.mockResolvedValue({ id: '1' });
+
+      await repository.updateReminder({ id: '1', alarms: [0] });
+
+      const args = mockExecuteCli.mock.calls[0][0];
+      expect(args).toEqual([
+        '--action',
+        'update',
+        '--id',
+        '1',
+        '--alarms',
+        '0',
+      ]);
+    });
+
+    it('sends an empty --alarms value to clear alarms', async () => {
+      mockExecuteCli.mockResolvedValue({ id: '1' });
+
+      await repository.updateReminder({ id: '1', alarms: [] });
+
+      const args = mockExecuteCli.mock.calls[0][0];
+      const i = args.indexOf('--alarms');
+      expect(i).toBeGreaterThan(-1);
+      expect(args[i + 1]).toBe('');
+    });
+
+    it('omits --alarms when not provided', async () => {
+      mockExecuteCli.mockResolvedValue({ id: '1' });
+
+      await repository.createReminder({ title: 'x', dueDate: '2026-11-25' });
+
+      expect(mockExecuteCli.mock.calls[0][0]).not.toContain('--alarms');
+    });
+
+    it('maps null alarms from the CLI to undefined', async () => {
+      mockExecuteCli.mockResolvedValue({
+        lists: [],
+        reminders: [
+          {
+            id: '1',
+            title: 't',
+            isCompleted: false,
+            list: 'WORK',
+            notes: null,
+            url: null,
+            dueDate: null,
+            alarms: null,
+          },
+        ],
+      });
+
+      const reminder = await repository.findReminderById('1');
+
+      expect(reminder.alarms).toBeUndefined();
+    });
+  });
+
   describe('deleteReminder', () => {
     it('should delete reminder by id', async () => {
       mockExecuteCli.mockResolvedValue(undefined);
