@@ -20,12 +20,23 @@ import {
   nullToUndefined,
 } from './helpers.js';
 
+/**
+ * Passes alarms to the CLI as comma-separated minute offsets from the due date.
+ * An empty array is meaningful — it clears every alarm — so it must still be
+ * sent, unlike the falsy-skipping addOptionalArg.
+ */
+function addAlarmsArg(args: string[], alarms: number[] | undefined): void {
+  if (alarms === undefined) return;
+  args.push('--alarms', alarms.join(','));
+}
+
 class ReminderRepository {
   private mapReminder(reminder: ReminderJSON): Reminder {
     const normalizedReminder = nullToUndefined(reminder, [
       'notes',
       'url',
       'dueDate',
+      'alarms',
     ]) as Reminder;
 
     // Pass dueDate as-is from Swift CLI to avoid double timezone conversion
@@ -77,6 +88,7 @@ class ReminderRepository {
     addOptionalArg(args, '--note', data.notes);
     addOptionalArg(args, '--url', data.url);
     addOptionalArg(args, '--dueDate', data.dueDate);
+    addAlarmsArg(args, data.alarms);
 
     return executeCli<ReminderJSON>(args);
   }
@@ -89,6 +101,7 @@ class ReminderRepository {
     addOptionalArg(args, '--url', data.url);
     addOptionalArg(args, '--dueDate', data.dueDate);
     addOptionalBooleanArg(args, '--isCompleted', data.isCompleted);
+    addAlarmsArg(args, data.alarms);
 
     return executeCli<ReminderJSON>(args);
   }

@@ -11,7 +11,7 @@ struct ErrorOutput: Codable { let status = "error"; let message: String }
 struct ReadResult: Codable { let lists: [ListJSON]; let reminders: [ReminderJSON] }
 struct DeleteResult: Codable { let id: String; let deleted = true }
 struct DeleteListResult: Codable { let title: String; let deleted = true }
-struct ReminderJSON: Codable { let id: String, title: String, isCompleted: Bool, list: String, notes: String?, url: String?, dueDate: String? }
+struct ReminderJSON: Codable { let id: String, title: String, isCompleted: Bool, list: String, notes: String?, url: String?, dueDate: String?, alarms: [Int]? }
 struct ListJSON: Codable { let id: String, title: String }
 struct RecurrenceJSON: Codable { let frequency: String, interval: Int, endDate: String?, occurrenceCount: Int? }
 struct EventJSON: Codable { let id: String, title: String, calendar: String, startDate: String, endDate: String, notes: String?, location: String?, latitude: Double?, longitude: Double?, url: String?, isAllDay: Bool, recurrence: RecurrenceJSON?, attendees: [String]?, alarms: [Int]? }
@@ -285,6 +285,72 @@ private func applyAlarms(to event: EKEvent, offsetsInMinutes: [Int]) {
     }
 }
 
+// MARK: - Reminder Alarm Helpers
+
+// EventKit does not attach an alarm when a due date is set — Reminders.app's UI
+// does that on its own when you pick a time. A reminder saved with only
+// dueDateComponents shows the time in the list but never notifies, so these
+// helpers give every dated reminder an EKAlarm, the way the UI would.
+
+// Date-only reminders notify at this local hour, matching Reminders.app's
+// default "Today Notification" time.
+private let dateOnlyReminderAlarmHour = 9
+
+// The moment alarm offsets are measured from: the due date-time, or 09:00 on
+// the due day for a date-only reminder. nil when there is no due date.
+private func reminderAlarmBaseDate(_ reminder: EKReminder) -> Date? {
+    guard var components = reminder.dueDateComponents else { return nil }
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = components.timeZone ?? reminder.timeZone ?? TimeZone.current
+    if components.hour == nil {
+        components.hour = dateOnlyReminderAlarmHour
+        components.minute = 0
+        components.second = 0
+    }
+    components.calendar = nil
+    return calendar.date(from: components)
+}
+
+// Current alarms as whole minutes relative to the base date.
+private func reminderAlarmOffsets(_ reminder: EKReminder) -> [Int] {
+    let base = reminderAlarmBaseDate(reminder)
+    return (reminder.alarms ?? []).compactMap { alarm -> Int? in
+        if let absolute = alarm.absoluteDate {
+            guard let base = base else { return nil }
+            return Int((absolute.timeIntervalSince(base) / 60).rounded())
+        }
+        return Int((alarm.relativeOffset / 60).rounded())
+    }
+}
+
+// Rebuilds the reminder's alarms.
+// - alarmSpec given: it replaces the alarms wholesale ("" clears them all).
+// - alarmSpec omitted but the due date changed: keep the previous offsets
+//   (moved with the due date), or a single at-due-time alarm if there were none.
+// - neither: leave the alarms untouched.
+// Alarms are stored as absolute dates, which is what Reminders.app itself writes.
+private func syncReminderAlarms(_ reminder: EKReminder, alarmSpec: String?, dueDateChanged: Bool, previousOffsets: [Int]) throws {
+    let offsets: [Int]
+    if let spec = alarmSpec {
+        offsets = try parseAlarmOffsets(spec)
+    } else if dueDateChanged {
+        offsets = previousOffsets.isEmpty ? [0] : previousOffsets
+    } else {
+        return
+    }
+    for existing in reminder.alarms ?? [] { reminder.removeAlarm(existing) }
+    guard !offsets.isEmpty else { return }
+    guard let base = reminderAlarmBaseDate(reminder) else {
+        if alarmSpec != nil {
+            throw NSError(domain: "", code: 400, userInfo: [NSLocalizedDescriptionKey: "--alarms requires the reminder to have a dueDate."])
+        }
+        return
+    }
+    for minutes in offsets {
+        reminder.addAlarm(EKAlarm(absoluteDate: base.addingTimeInterval(TimeInterval(minutes * 60))))
+    }
+}
+
 // MARK: - RemindersManager Class
 class RemindersManager {
     private let eventStore = EKEventStore()
@@ -361,7 +427,7 @@ class RemindersManager {
         return filtered.map { $0.toJSON() }
     }
 
-    func createReminder(title: String, listName: String?, notes: String?, urlString: String?, dueDateString: String?) throws -> ReminderJSON {
+    func createReminder(title: String, listName: String?, notes: String?, urlString: String?, dueDateString: String?, alarms: String?) throws -> ReminderJSON {
         let reminder = EKReminder(eventStore: eventStore)
         reminder.calendar = try findList(named: listName)
         reminder.title = title
@@ -382,6 +448,7 @@ class RemindersManager {
         }
         if let finalNotes = finalNotes { reminder.notes = finalNotes }
         
+        let previousAlarmOffsets = reminderAlarmOffsets(reminder)
         if let dateStr = dueDateString {
             if let parsedComponents = parseDateComponents(from: dateStr) {
                 reminder.dueDateComponents = parsedComponents
@@ -391,11 +458,12 @@ class RemindersManager {
                 reminder.timeZone = nil
             }
         }
+        try syncReminderAlarms(reminder, alarmSpec: alarms, dueDateChanged: dueDateString != nil, previousOffsets: previousAlarmOffsets)
         try eventStore.save(reminder, commit: true)
         return reminder.toJSON()
     }
 
-    func updateReminder(id: String, newTitle: String?, listName: String?, notes: String?, urlString: String?, isCompleted: Bool?, dueDateString: String?) throws -> ReminderJSON {
+    func updateReminder(id: String, newTitle: String?, listName: String?, notes: String?, urlString: String?, isCompleted: Bool?, dueDateString: String?, alarms: String?) throws -> ReminderJSON {
         guard let reminder = findReminder(withId: id) else { throw NSError(domain: "", code: 404, userInfo: [NSLocalizedDescriptionKey: "ID '\(id)' not found."]) }
         if let newTitle = newTitle { reminder.title = newTitle }
         
@@ -438,6 +506,7 @@ class RemindersManager {
         
         if let isCompleted = isCompleted { reminder.isCompleted = isCompleted }
         if let listName = listName { reminder.calendar = try findList(named: listName) }
+        let previousAlarmOffsets = reminderAlarmOffsets(reminder)
         if let dateStr = dueDateString {
             if let parsedComponents = parseDateComponents(from: dateStr) {
                 reminder.dueDateComponents = parsedComponents
@@ -447,6 +516,7 @@ class RemindersManager {
                 reminder.timeZone = nil
             }
         }
+        try syncReminderAlarms(reminder, alarmSpec: alarms, dueDateChanged: dueDateString != nil, previousOffsets: previousAlarmOffsets)
         try eventStore.save(reminder, commit: true)
         return reminder.toJSON()
     }
@@ -712,7 +782,8 @@ extension EKReminder {
             list: self.calendar.title,
             notes: self.notes,
             url: self.url?.absoluteString,
-            dueDate: formatDueDateWithTimezone(from: self.dueDateComponents, timeZoneHint: self.timeZone)
+            dueDate: formatDueDateWithTimezone(from: self.dueDateComponents, timeZoneHint: self.timeZone),
+            alarms: self.alarms == nil ? nil : reminderAlarmOffsets(self)
         )
     }
 }
@@ -880,11 +951,11 @@ func main() {
                 print(String(data: try encoder.encode(StandardOutput(result: manager.getLists())), encoding: .utf8)!)
             case "create":
                 guard let title = parser.get("title") else { throw NSError(domain: "", code: 400, userInfo: [NSLocalizedDescriptionKey: "--title required."]) }
-                let reminder = try manager.createReminder(title: title, listName: parser.get("targetList"), notes: parser.get("note"), urlString: parser.get("url"), dueDateString: parser.get("dueDate"))
+                let reminder = try manager.createReminder(title: title, listName: parser.get("targetList"), notes: parser.get("note"), urlString: parser.get("url"), dueDateString: parser.get("dueDate"), alarms: parser.get("alarms"))
                 print(String(data: try encoder.encode(StandardOutput(result: reminder)), encoding: .utf8)!)
             case "update":
                 guard let id = parser.get("id") else { throw NSError(domain: "", code: 400, userInfo: [NSLocalizedDescriptionKey: "--id required."]) }
-                let reminder = try manager.updateReminder(id: id, newTitle: parser.get("title"), listName: parser.get("targetList"), notes: parser.get("note"), urlString: parser.get("url"), isCompleted: parser.get("isCompleted").map { $0 == "true" }, dueDateString: parser.get("dueDate"))
+                let reminder = try manager.updateReminder(id: id, newTitle: parser.get("title"), listName: parser.get("targetList"), notes: parser.get("note"), urlString: parser.get("url"), isCompleted: parser.get("isCompleted").map { $0 == "true" }, dueDateString: parser.get("dueDate"), alarms: parser.get("alarms"))
                 print(String(data: try encoder.encode(StandardOutput(result: reminder)), encoding: .utf8)!)
             case "delete":
                 guard let id = parser.get("id") else { throw NSError(domain: "", code: 400, userInfo: [NSLocalizedDescriptionKey: "--id required."]) }

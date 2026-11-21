@@ -1,6 +1,6 @@
 {
   "name": "mcp-macos",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "Drive Reminders, Calendar, Notes, Mail, Messages, and Contacts on macOS from an AI agent or the shell. MCP server, agent skill, or CLI.",
   "author": "Kyle Jensen",
   "contributors": [

@@ -15,6 +15,7 @@ export interface ReminderJSON {
   notes: string | null;
   url: string | null;
   dueDate: string | null;
+  alarms: number[] | null;
 }
 
 export interface ListJSON {
@@ -75,6 +76,7 @@ export interface CreateReminderData {
   notes?: string;
   url?: string;
   dueDate?: string;
+  alarms?: number[];
 }
 
 export interface UpdateReminderData {
@@ -85,6 +87,7 @@ export interface UpdateReminderData {
   url?: string;
   isCompleted?: boolean;
   dueDate?: string;
+  alarms?: number[];
 }
 
 export interface RecurrenceData {

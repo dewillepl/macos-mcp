@@ -45,7 +45,7 @@ const _EXTENDED_TOOLS: ExtendedTool[] = [
   {
     name: 'reminders_tasks',
     description:
-      'Manages Apple Reminders tasks. Common actions: (1) "Show my reminders" → read action. (2) "Remind me to X" → create with title and optional dueDate. (3) "Mark X as done" → update with completed=true. Filter by list with filterList, by due date with dueWithin (today/tomorrow/this-week/overdue/no-date), or search by title/notes with search. Use targetList to assign a reminder to a specific list. Title max 200 chars, notes max 2000 chars.',
+      'Manages Apple Reminders tasks. Common actions: (1) "Show my reminders" → read action. (2) "Remind me to X" → create with title and optional dueDate. (3) "Mark X as done" → update with completed=true. Filter by list with filterList, by due date with dueWithin (today/tomorrow/this-week/overdue/no-date), or search by title/notes with search. Use targetList to assign a reminder to a specific list. Setting a dueDate automatically adds a notification at the due time (09:00 for date-only), like Reminders.app does; use `alarms` for extra or different alerts (minutes relative to the due date, e.g. [-10080, -2880, 0]). Read shows each reminder\'s alerts. Title max 200 chars, notes max 2000 chars.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -83,6 +83,12 @@ const _EXTENDED_TOOLS: ExtendedTool[] = [
         completed: {
           type: 'boolean',
           description: 'The completion status of the reminder (for update).',
+        },
+        alarms: {
+          type: 'array',
+          items: { type: 'number' },
+          description:
+            "Notifications for the reminder, as whole minutes relative to its due date: negative is before (-60 = '1 hour before', -1440 = '1 day before', -10080 = '1 week before'), 0 is at the due time. For a date-only reminder offsets count from 09:00 that day. Requires a dueDate. The list replaces existing alerts wholesale; pass an empty array to remove them all. If omitted, create adds a single alert at the due time, and update keeps existing alerts (moving them along if dueDate changes, or adding one at the due time if there were none).",
         },
         targetList: {
           type: 'string',

@@ -33,6 +33,7 @@ const formatReminderMarkdown = (reminder: {
   notes?: string;
   dueDate?: string;
   url?: string;
+  alarms?: number[];
 }): string[] => {
   const lines: string[] = [];
   const checkbox = reminder.isCompleted ? '[x]' : '[ ]';
@@ -43,6 +44,13 @@ const formatReminderMarkdown = (reminder: {
     lines.push(`  - Notes: ${formatMultilineNotes(reminder.notes)}`);
   if (reminder.dueDate) lines.push(`  - Due: ${reminder.dueDate}`);
   if (reminder.url) lines.push(`  - URL: ${reminder.url}`);
+  if (reminder.dueDate) {
+    lines.push(
+      reminder.alarms && reminder.alarms.length > 0
+        ? `  - Alerts (minutes from due): ${reminder.alarms.join(', ')}`
+        : '  - Alerts: none (will NOT notify)',
+    );
+  }
   return lines;
 };
 
@@ -57,6 +65,7 @@ export const handleCreateReminder = async (
       url: validatedArgs.url,
       list: validatedArgs.targetList,
       dueDate: validatedArgs.dueDate,
+      alarms: validatedArgs.alarms,
     });
     return formatSuccessMessage(
       'created',
@@ -80,6 +89,7 @@ export const handleUpdateReminder = async (
       isCompleted: validatedArgs.completed,
       list: validatedArgs.targetList,
       dueDate: validatedArgs.dueDate,
+      alarms: validatedArgs.alarms,
     });
     return formatSuccessMessage(
       'updated',

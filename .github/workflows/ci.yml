@@ -51,7 +51,8 @@ jobs:
   release:
     name: Release
     needs: [lint, test, build]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Publish only from the original repo - forks must never run semantic-release.
+    if: github.repository == 'krmj22/macos-mcp' && github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: macos-latest
     permissions:
       contents: write

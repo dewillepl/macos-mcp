@@ -14,6 +14,7 @@ export interface Reminder {
   url?: string; // Native URL field (currently limited by EventKit API)
   list: string;
   isCompleted: boolean;
+  alarms?: number[];
 }
 
 /**
@@ -142,6 +143,8 @@ export interface RemindersToolArgs extends BaseToolArgs {
   note?: string;
   url?: string;
   completed?: boolean;
+  // Alerts as whole minutes relative to the due date
+  alarms?: number[];
   // Target list for create/update operations
   targetList?: string;
 }
